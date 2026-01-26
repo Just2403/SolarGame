@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar Farm Spiel</title>
+    <link rel="stylesheet" href="solarcss.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="farm-area" class="day"></div>
+        <div id="ui-panel">
+            <div id="time-display">06:00</div>
+            <div class="progress-container">
+                <div id="day-progress" class="progress-bar"></div>
+            </div>
+            <div id="weather-display">Wetter: Sonnig | Jahreszeit: Frühling</div>
+            <div id="stats">
+                <h2>Statistiken</h2>
+                <p>Geld: <span id="money">1000</span> €</p>
+                <p>Einkommen: <span id="income">0</span> €/Tag</p>
+                <p>Passives Einkommen: <span id="passive-income">0</span> €/119s</p>
+                <p>Tag: <span id="day">1</span></p>
+                <p>Gesamtgewinn: <span id="total-profit">0</span> €</p>
+                <p>Gesamtenergie: <span id="total-energy">0</span> kWh</p>
+                <p>Kredit: <span id="loan-amount">Kein Kredit</span></p>
+                <div class="energy-stats">
+                    <h3>Energie</h3>
+                    <div class="energy-stat">
+                        <span class="energy-label">Produktion:</span>
+                        <span id="energy-production" class="energy-value">0.0 kW/5s</span>
+                    </div>
+                    <div class="energy-stat">
+                        <span class="energy-label">Verbrauch:</span>
+                        <span id="energy-consumption" class="energy-value">0.0 kW/h</span>
+                    </div>
+                    <div class="energy-stat">
+                        <span class="energy-label">Netto:</span>
+                        <span id="energy-net" class="energy-value">0.0 kW/5s</span>
+                    </div>
+                    <div class="energy-stat">
+                        <span class="energy-label">Speicher:</span>
+                        <span id="energy-storage" class="energy-value">0.0 kWh</span>
+                    </div>
+                    <div class="energy-stat">
+                        <span class="energy-label">Kapazität:</span>
+                        <span id="energy-capacity" class="energy-value">0.0 kWh</span>
+                    </div>
+                </div>
+                <p>Weizen: <span id="wheat-stock">0</span></p>
+            </div>
+            <h2>Bau-Optionen</h2>
+            <button id="build-solar-panel">PV-Anlage (500€)</button>
+            <button id="build-wind-turbine">Windkraftanlage (600€)</button>
+            <button id="build-barn">Stall (300€)</button>
+            <button id="build-field">Feld (200€)</button>
+            <button id="build-battery">Batteriespeicher (10€)</button>
+            <button id="build-silo">Silo (400€)</button>
+            <button id="build-water-pump">Wasserpumpe (250€)</button>
+            <p id="build-hint">Klicken, um zu bauen. ESC zum Abbrechen.</p>
+            <button id="sell-energy-btn">Strom verkaufen (<span id="energy-price">1.00</span>€/kWh)</button>
+            <button id="sell-wheat-btn" style="display: none;">Weizen verkaufen (<span id="wheat-price">0.50</span>€/Einheit)</button>
+            <div class="sell-info" id="sell-info"></div>
+            <button id="take-loan-btn">Kredit aufnehmen (1000€)</button>
+            <button id="repay-loan-btn">Kredit zurückzahlen</button>
+            <button id="view-achievements-btn">Erfolge anzeigen</button>
+            <div id="upgrade-menu" style="display: none;">
+                <h3>Upgrades</h3>
+                <button id="upgrade-btn-1">Stufe 1</button>
+                <button id="upgrade-btn-2">Stufe 2</button>
+                <button id="upgrade-btn-3">Stufe 3</button>
+            </div>
+            <button id="reset-btn">Spiel zurücksetzen</button>
+        </div>
+    </div>
+    <div id="tutorial-modal" style="display: none;">
+        <div class="tutorial-content">
+            <h2>Willkommen bei Solar Farm!</h2>
+            <p>Baue PV-Anlagen und Windkraftanlagen, um Energie zu erzeugen. Nutze Batterien, um Energie zu speichern, und Felder, um Weizen zu produzieren. Verkaufe Strom und Weizen, um Geld zu verdienen!</p>
+            <p><strong>Tipps:</strong></p>
+            <ul>
+                <li>Platziere Gebäude mit Klick oder Drag & Drop.</li>
+                <li>Ernte reife Felder, um Weizen zu sammeln.</li>
+                <li>Upgrade PV-Anlagen, Batterien und Silos für bessere Leistung.</li>
+                <li>Behalte die Tageszeit, das Wetter und die Jahreszeit im Auge!</li>
+                <li>Schalte Erfolge frei, um Belohnungen zu erhalten.</li>
+                <li>Wartungskosten fallen regelmäßig an.</li>
+                <li>Nimm Kredite auf, aber zahle sie rechtzeitig zurück!</li>
+            </ul>
+            <button id="close-tutorial">Spiel starten</button>
+        </div>
+    </div>
+    <div id="achievements-modal" style="display: none;">
+        <div class="tutorial-content">
+            <h2>Erfolge</h2>
+            <div id="achievements-content"></div>
+            <button id="close-achievements">Schließen</button>
+        </div>
+    </div>
+    <script src="solarjs.js"></script>
+</body>
+</html>

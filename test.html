@@ -1,0 +1,2274 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Solar Farm</title>
+    <style>
+        /* CSS-Stile */
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Roboto Mono', monospace;
+            background-color: #333;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100vh;
+        }
+        
+        #game-container {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        /* Farm-Bereich */
+        #farm-area {
+            flex-grow: 1;
+            background-color: #8bc34a;
+            border: 3px solid #5a9216;
+            position: relative;
+            overflow: hidden;
+            transition: filter 1s ease, background-color 1s ease;
+        }
+        
+        #farm-area.night {
+            filter: brightness(0.4);
+            background-color: #2a4e1a;
+        }
+        
+        #farm-area.dawn {
+            filter: brightness(0.7);
+            background-color: #5a9216;
+        }
+        
+        #farm-area.day {
+            filter: brightness(1);
+            background-color: #8bc34a;
+        }
+        
+        #farm-area.dusk {
+            filter: brightness(0.7);
+            background-color: #5a9216;
+        }
+        
+        #farm-area.cloudy {
+            filter: brightness(0.8);
+            background-color: #6b8e23;
+        }
+        
+        #farm-area.windy {
+            filter: brightness(0.9);
+            background-color: #7ba05b;
+        }
+        
+        /* UI-Panel */
+        #ui-panel {
+            width: 300px;
+            min-width: 300px;
+            padding: 15px;
+            background-color: #444;
+            color: white;
+            overflow-y: auto;
+            height: 100%;
+            box-sizing: border-box;
+            border-left: 2px solid #666;
+        }
+        
+        /* Gebäude-Styles */
+        .farm-item {
+            position: absolute;
+            cursor: pointer;
+            transition: transform 0.1s;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+        }
+        
+        .farm-item:hover {
+            transform: scale(1.05);
+            z-index: 5;
+        }
+        
+        .farm-item:not(:hover) {
+            transition: color 0.2s ease;
+        }
+        
+        .farm-item:hover {
+            color: transparent;
+        }
+        
+        .farm-item::after {
+            content: attr(data-income);
+            position: absolute;
+            color: white;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 10px;
+            font-weight: 400;
+            text-align: center;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            white-space: pre-wrap;
+        }
+        
+        .farm-item:hover::after {
+            opacity: 1;
+        }
+        
+        .temp-item {
+            pointer-events: none;
+            opacity: 0.7;
+            z-index: 10;
+        }
+        
+        .invalid-position {
+            background-color: rgba(255, 0, 0, 0.3) !important;
+        }
+        
+        /* Spezifische Gebäude */
+        .solar-panel {
+            width: 60px;
+            height: 60px;
+            background-color: #2196F3;
+            border: 2px solid #0d47a1;
+            border-radius: 3px;
+        }
+        
+        .solar-panel.lvl1 { background-color: #2196F3; }
+        .solar-panel.lvl2 { background-color: #00BCD4; }
+        .solar-panel.lvl3 { background-color: #009688; }
+        
+        .wind-turbine {
+            width: 60px;
+            height: 80px;
+            background-color: #00CED1;
+            border: 2px solid #008B8B;
+            border-radius: 3px;
+        }
+        
+        .wind-turbine.lvl1 { background-color: #00CED1; }
+        .wind-turbine.lvl2 { background-color: #20B2AA; }
+        .wind-turbine.lvl3 { background-color: #008B8B; }
+        
+        .barn {
+            width: 80px;
+            height: 60px;
+            background-color: #795548;
+            border: 2px solid #3e2723;
+            border-radius: 3px;
+        }
+        
+        .field {
+            width: 100px;
+            height: 80px;
+            background-color: #8bc34a;
+            border: 2px solid #33691e;
+            border-radius: 3px;
+            position: relative;
+            transition: background-color 1s linear;
+        }
+        
+        .field.field-seed {
+            background-color: #8b6f47;
+        }
+        
+        .field.field-growing {
+            background-color: #4caf50;
+        }
+        
+        .field.field-ripe {
+            background-color: #ffd700;
+        }
+        
+        .battery {
+            width: 70px;
+            height: 50px;
+            background-color: #9E9E9E;
+            border: 2px solid #616161;
+            border-radius: 5px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .battery::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #4CAF50;
+            height: var(--fill-level, 0%);
+            transition: height 0.5s ease;
+        }
+        
+        .battery.lvl1 { border-color: #2196F3; }
+        .battery.lvl2 { border-color: #FFC107; }
+        .battery.lvl3 { border-color: #F44336; }
+        
+        .silo {
+            width: 70px;
+            height: 70px;
+            background-color: #607D8B;
+            border: 2px solid #37474F;
+            border-radius: 50%;
+        }
+        
+        .silo.lvl1 { border-color: #0288D1; }
+        .silo.lvl2 { border-color: #FBC02D; }
+        .silo.lvl3 { border-color: #D32F2F; }
+        
+        .water-pump {
+            width: 50px;
+            height: 50px;
+            background-color: #4682B4;
+            border: 2px solid #2F4F4F;
+            border-radius: 5px;
+        }
+        
+        /* Zeit- und Wetter-Anzeige */
+        #time-display, #weather-display {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 24px;
+            text-align: center;
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #555;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        
+        .progress-container {
+            width: 100%;
+            background-color: #555;
+            border-radius: 5px;
+            margin: 10px 0;
+            overflow: hidden;
+            height: 20px;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #1a2e0d, #4CAF50);
+            width: 0%;
+            position: relative;
+        }
+        
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg,
+            rgba(255,255,255,0.1) 0%,
+            rgba(255,255,255,0.3) 50%,
+            rgba(255,255,255,0.1) 100%);
+            background-size: 200% 100%;
+            animation: shine 2s infinite linear;
+        }
+        
+        @keyframes shine {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        /* Energie-Statistiken */
+        .energy-stats {
+            background-color: #555;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        
+        .energy-stat {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        
+        .energy-label {
+            font-weight: bold;
+        }
+        
+        .energy-value {
+            color: #4CAF50;
+        }
+        
+        .negative {
+            color: #f44336;
+        }
+        
+        /* Buttons */
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px;
+            margin: 5px 0;
+            font-size: 14px;
+            cursor: pointer;
+            font-family: 'Roboto Mono', monospace;
+            width: 100%;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        .upgrade-btn {
+            background-color: #FF9800;
+            margin-top: 8px;
+        }
+        
+        .upgrade-btn:hover {
+            background-color: #F57C00;
+        }
+        
+        #sell-energy-btn, #sell-wheat-btn {
+            background-color: #FFC107;
+            color: #333;
+            font-weight: bold;
+            margin-top: 15px;
+        }
+        
+        #sell-energy-btn:hover, #sell-wheat-btn:hover {
+            background-color: #FFA000;
+        }
+        
+        /* Geldzuwachs-Animation */
+        .money-change {
+            position: absolute;
+            color: #4CAF50;
+            font-weight: bold;
+            font-size: 16px;
+            pointer-events: none;
+            animation: float-up 1s ease-out forwards;
+            z-index: 100;
+        }
+        
+        @keyframes float-up {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-50px); opacity: 0; }
+        }
+        
+        /* Fehler-Nachricht */
+        .error-message {
+            position: absolute;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            background-color: rgba(255, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+        
+        /* Tutorial-Modal */
+        #tutorial-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .tutorial-content {
+            background-color: #444;
+            padding: 20px;
+            border-radius: 5px;
+            color: white;
+            max-width: 500px;
+            text-align: center;
+        }
+        
+        .tutorial-content ul {
+            text-align: left;
+        }
+        
+        #close-tutorial {
+            background-color: #4CAF50;
+            margin-top: 15px;
+        }
+        
+        #close-tutorial:hover {
+            background-color: #45a049;
+        }
+        
+        /* Sonstige UI-Elemente */
+        #build-hint {
+            color: #aaa;
+            font-size: 12px;
+            margin: 5px 0;
+            text-align: center;
+        }
+        
+        .sell-info {
+            margin-top: 8px;
+            padding: 8px;
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+            font-size: 13px;
+            text-align: center;
+            min-height: 18px;
+        }
+        
+        h2, h3 {
+            color: #FFC107;
+            margin-top: 0;
+        }
+        
+        #stats p {
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        
+        .selected {
+            box-shadow: 0 0 10px 5px rgba(255, 255, 0, 0.7);
+        }
+        
+        /* Neue Features */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background-color: #444;
+            padding: 20px;
+            border-radius: 5px;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        /* Jahreszeiten-Farben */
+        #farm-area.summer {
+            background-color: #8bc34a;
+            border-color: #5a9216;
+        }
+        
+        #farm-area.autumn {
+            background-color: #e67e22;
+            border-color: #d35400;
+        }
+        
+        #farm-area.winter {
+            background-color: #ecf0f1;
+            border-color: #bdc3c7;
+        }
+        
+        #farm-area.spring {
+            background-color: #2ecc71;
+            border-color: #27ae60;
+        }
+        
+        /* Event-Log */
+        .event-log {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        
+        .event-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #FFC107;
+        }
+        
+        .event-good {
+            border-left-color: #4CAF50;
+        }
+        
+        .event-bad {
+            border-left-color: #F44336;
+        }
+        
+        /* Forschungs-Buttons */
+        .research-option {
+            display: block;
+            width: 100%;
+            margin: 5px 0;
+            padding: 10px;
+            background-color: #3498db;
+            border: none;
+            color: white;
+            text-align: left;
+            border-radius: 4px;
+        }
+        
+        .research-option:disabled {
+            background-color: #7f8c8d;
+        }
+        
+        .research-option.unlocked {
+            background-color: #2ecc71;
+        }
+        
+        /* Mitarbeiter-UI */
+        .worker-stats {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="farm-area" class="day"></div>
+        <div id="ui-panel">
+            <div id="time-display">06:00</div>
+            <div class="progress-container">
+                <div id="day-progress" class="progress-bar"></div>
+            </div>
+            <div id="weather-display">Wetter: Sonnig</div>
+            <div id="season-display">Jahreszeit: Sommer</div>
+            
+            <div id="stats">
+                <h2>Statistiken</h2>
+                <p>Geld: <span id="money">1000</span> €</p>
+                <p>Einkommen: <span id="income">0</span> €/Tag</p>
+                <p>Passives Einkommen: <span id="passive-income">0</span> €/119s</p>
+                <p>Tag: <span id="day">1</span> (<span id="season-day">1</span>/90)</p>
+                <p>CO2-Ausstoß: <span id="co2">0</span> kg</p>
+                
+                <div class="energy-stats">
+                    <h3>Energie</h3>
+                    <div class="energy-stat">
+                        <span class="energy-label">Produktion:</span>
+                        <span id="energy-production" class="energy-value">0.0 kW/5s</span>
+                    </div>
+                    <div class="energy-stat">
+                        <span class="energy-label">Verbrauch:</span>
+                        <span id="energy-consumption" class="energy-value">0.0 kW/h</span>
+                    </div>
+                    <div class="energy-stat">
+                        <span class="energy-label">Netto:</span>
+                        <span id="energy-net" class="energy-value">0.0 kW/5s</span>
+                    </div>
+                    <div class="energy-stat">
+                        <span class="energy-label">Speicher:</span>
+                        <span id="energy-storage" class="energy-value">0.0 kWh</span>
+                    </div>
+                    <div class="energy-stat">
+                        <span class="energy-label">Kapazität:</span>
+                        <span id="energy-capacity" class="energy-value">0.0 kWh</span>
+                    </div>
+                </div>
+                
+                <p>Weizen: <span id="wheat-stock">0</span></p>
+                <p>Mitarbeiter: <span id="workers">0</span></p>
+            </div>
+
+            <h2>Bau-Optionen</h2>
+            <div class="build-buttons">
+                <button id="build-solar-panel">PV-Anlage (500€)</button>
+                <button id="build-wind-turbine">Windkraftanlage (600€)</button>
+                <button id="build-barn">Stall (300€)</button>
+                <button id="build-field">Feld (200€)</button>
+                <button id="build-battery">Batteriespeicher (10€)</button>
+                <button id="build-silo">Silo (400€)</button>
+                <button id="build-water-pump">Wasserpumpe (250€)</button>
+            </div>
+            <p id="build-hint">Klicken, um zu bauen. ESC zum Abbrechen.</p>
+            
+            <button id="sell-energy-btn">Strom verkaufen (<span id="energy-price">1.00</span>€/kWh)</button>
+            <button id="sell-wheat-btn" style="display: none;">Weizen verkaufen (<span id="wheat-price">0.50</span>€/Einheit)</button>
+            <button id="hire-worker-btn">Mitarbeiter einstellen (500€/Tag)</button>
+            
+            <div class="event-log" id="event-log"></div>
+            
+            <div id="upgrade-menu" style="display: none;">
+                <h3>Upgrades</h3>
+                <button id="upgrade-btn-1">Stufe 1</button>
+                <button id="upgrade-btn-2">Stufe 2</button>
+                <button id="upgrade-btn-3">Stufe 3</button>
+            </div>
+            
+            <button id="research-btn">Forschungszentrum</button>
+            <button id="reset-btn">Spiel zurücksetzen</button>
+        </div>
+    </div>
+
+    <div id="research-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2>Forschungszentrum</h2>
+            <div id="research-options"></div>
+            <button id="close-research">Schließen</button>
+        </div>
+    </div>
+
+    <div id="tutorial-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2>Willkommen bei Advanced Solar Farm!</h2>
+            <p>Neue Features:</p>
+            <ul>
+                <li>Forschungsbaum für permanente Verbesserungen</li>
+                <li>Jahreszeiten beeinflussen Produktion</li>
+                <li>Zufallsereignisse fordern dich heraus</li>
+                <li>Mitarbeiter automatisieren Prozesse</li>
+            </ul>
+            <button id="close-tutorial">Spiel starten</button>
+        </div>
+    </div>
+
+    <script>
+        // Spielzustand
+        const gameState = {
+            money: 1000,
+            energy: 0,
+            energyCapacity: 0,
+            energyProduction: 0,
+            energyConsumption: 0,
+            income: 0,
+            passiveIncome: 0,
+            day: 1,
+            seasonDay: 1,
+            season: 'summer',
+            items: [],
+            workers: [],
+            research: {},
+            events: [],
+            co2Emissions: 0,
+            weather: 'sunny',
+            dayPhase: 'night',
+            currentHour: 0,
+            currentMinute: 0,
+            dayStartTime: Date.now(),
+            dayDuration: 2 * 60 * 1000,
+            timers: [],
+            selectedItem: null,
+            passiveIncomeTimer: null,
+            buildMode: null,
+            tempItem: null,
+            isDragging: false,
+            draggedItem: null,
+            dragOffsetX: 0,
+            dragOffsetY: 0,
+            lastEnergyUpdate: Date.now(),
+            wheatStock: 0,
+            autoPurchaseActive: false,
+            totalProfit: 0,
+            totalEnergy: 0,
+            energyPrice: 1.00,
+            wheatPrice: 0.50,
+            firstLoad: true
+        };
+
+        // Gebäudepreise und Eigenschaften
+        const itemsData = {
+            'solar-panel': {
+                name: 'PV-Anlage',
+                cost: 500,
+                basePower: 5,
+                income: 0,
+                passiveIncome: 0,
+                width: 60,
+                height: 60,
+                levels: [
+                    { cost: 200, powerBonus: 25 },
+                    { cost: 500, powerBonus: 50 },
+                    { cost: 1000, powerBonus: 100 }
+                ]
+            },
+            'wind-turbine': {
+                name: 'Windkraftanlage',
+                cost: 600,
+                basePower: 3,
+                income: 0,
+                passiveIncome: 0,
+                width: 60,
+                height: 80,
+                levels: [
+                    { cost: 250, powerBonus: 15 },
+                    { cost: 600, powerBonus: 30 },
+                    { cost: 1200, powerBonus: 60 }
+                ]
+            },
+            'barn': {
+                name: 'Stall',
+                cost: 300,
+                power: -0.5,
+                income: 20,
+                passiveIncome: 0,
+                width: 80,
+                height: 60
+            },
+            'field': {
+                name: 'Feld',
+                cost: 200,
+                power: -0.3,
+                income: 0,
+                passiveIncome: 20,
+                width: 100,
+                height: 80,
+                growthTime: 119000,
+                wheatYield: () => Math.floor(Math.random() * 21) + 90
+            },
+            'battery': {
+                name: 'Batteriespeicher',
+                cost: 10,
+                capacity: 10,
+                efficiency: 0.95,
+                width: 70,
+                height: 50,
+                levels: [
+                    { cost: 500, capacityBonus: 500, efficiencyBonus: 0.03 },
+                    { cost: 1000, capacityBonus: 1000, efficiencyBonus: 0.05 },
+                    { cost: 2000, capacityBonus: 2000, efficiencyBonus: 0.07 }
+                ]
+            },
+            'silo': {
+                name: 'Silo',
+                cost: 400,
+                power: -0.1,
+                income: 0,
+                passiveIncome: 0,
+                width: 70,
+                height: 70,
+                capacity: 200,
+                levels: [
+                    { cost: 600, capacityBonus: 200 },
+                    { cost: 1200, capacityBonus: 400 },
+                    { cost: 2000, capacityBonus: 600 }
+                ]
+            },
+            'water-pump': {
+                name: 'Wasserpumpe',
+                cost: 250,
+                power: -0.4,
+                income: 0,
+                passiveIncome: 0,
+                width: 50,
+                height: 50,
+                growthBonus: 0.2
+            }
+        };
+
+        // Tageszeiten
+        const dayPhases = {
+            'night': { start: 0, end: 6, brightness: 0.4, color: '#2a4e1a', productionMultiplier: 0 },
+            'dawn': { start: 6, end: 8, brightness: 0.7, color: '#5a9216', productionMultiplier: 0.5 },
+            'day': { start: 8, end: 20, brightness: 1, color: '#8bc34a', productionMultiplier: 1 },
+            'dusk': { start: 20, end: 22, brightness: 0.7, color: '#5a9216', productionMultiplier: 0.5 }
+        };
+
+        // Wetterbedingungen
+        const weatherConditions = {
+            'sunny': { solarMultiplier: 1, windMultiplier: 0.8, description: 'Sonnig' },
+            'cloudy': { solarMultiplier: 0.7, windMultiplier: 1, description: 'Bewölkt' },
+            'windy': { solarMultiplier: 0.9, windMultiplier: 2, description: 'Windig' }
+        };
+
+        // Jahreszeiten-Daten
+        const seasons = {
+            spring: { solarMultiplier: 0.9, windMultiplier: 1.1, duration: 90 },
+            summer: { solarMultiplier: 1.2, windMultiplier: 0.8, duration: 90 },
+            autumn: { solarMultiplier: 0.8, windMultiplier: 1.2, duration: 90 },
+            winter: { solarMultiplier: 0.5, windMultiplier: 1.5, duration: 90 }
+        };
+
+        // Forschungsbaum
+        const researchTree = {
+            'battery-tech': {
+                name: 'Batterietechnik',
+                cost: 1500,
+                effect: 'Batteriekapazität +20%',
+                requirements: [],
+                unlocked: false
+            },
+            'solar-efficiency': {
+                name: 'Solareffizienz',
+                cost: 2000,
+                effect: 'PV-Anlagen +15% Produktion',
+                requirements: [],
+                unlocked: false
+            },
+            'wind-efficiency': {
+                name: 'Windoptimierung',
+                cost: 2500,
+                effect: 'Windräder +20% Produktion',
+                requirements: [],
+                unlocked: false
+            },
+            'advanced-agri': {
+                name: 'Landwirtschaft 4.0',
+                cost: 3000,
+                effect: 'Felder produzieren 30% mehr',
+                requirements: [],
+                unlocked: false
+            }
+        };
+
+        // Zufallsereignisse
+        const randomEvents = [
+            {
+                name: 'Stromausfall',
+                probability: 0.05,
+                effect: () => {
+                    gameState.energyProduction *= 0.5;
+                    addEvent('Stromausfall! Energieproduktion halbiert für diesen Tag', 'bad');
+                }
+            },
+            {
+                name: 'Subventionen',
+                probability: 0.03,
+                effect: () => {
+                    const amount = 2000;
+                    gameState.money += amount;
+                    addEvent(`Subventionen! ${amount}€ erhalten`, 'good');
+                    showMoneyGain(document.getElementById('money'), amount);
+                }
+            }
+        ];
+
+        // Mitarbeiter-Typen
+        const workerTypes = {
+            technician: {
+                name: 'Techniker',
+                cost: 500,
+                effect: 'Reduziert Wartungskosten um 10%'
+            },
+            farmer: {
+                name: 'Landwirt',
+                cost: 400,
+                effect: 'Erhöht Weizenertrag um 15%'
+            }
+        };
+
+        // Initialisierung
+        function initGame() {
+            console.log('Spiel wird initialisiert...');
+            clearAllTimers();
+            try {
+                loadGame();
+            } catch (e) {
+                console.error('Fehler beim Laden des Spielstands:', e);
+                resetGame();
+            }
+            setupEventListeners();
+            startDayCycle();
+            startPassiveIncome();
+            startEnergySystem();
+            startSeasonCycle();
+            startRandomEvents();
+            updateDayPhase();
+            updateUI();
+            showTutorial();
+        }
+
+        // Event-Listener einrichten
+        function setupEventListeners() {
+            const farmArea = document.getElementById('farm-area');
+            if (!farmArea) {
+                console.error('Farm-Bereich nicht gefunden!');
+                showError('Spiel konnte nicht geladen werden: Farm-Bereich fehlt!');
+                return;
+            }
+            
+            farmArea.addEventListener('mousemove', moveTempItem);
+            farmArea.addEventListener('touchmove', moveTempItemTouch);
+            farmArea.addEventListener('click', (e) => {
+                if (gameState.buildMode) {
+                    placeItem(e);
+                } else if (e.target.classList.contains('field')) {
+                    handleFieldHarvest(e);
+                } else if (e.target.id === 'farm-area') {
+                    if (gameState.selectedItem) {
+                        gameState.selectedItem.element.classList.remove('selected');
+                        gameState.selectedItem = null;
+                        const upgradeMenu = document.getElementById('upgrade-menu');
+                        if (upgradeMenu) upgradeMenu.style.display = 'none';
+                    }
+                }
+            });
+            
+            farmArea.addEventListener('mousedown', startDragItem);
+            farmArea.addEventListener('touchstart', startDragItemTouch);
+            document.addEventListener('mousemove', dragItem);
+            document.addEventListener('touchmove', dragItemTouch);
+            document.addEventListener('mouseup', stopDragItem);
+            document.addEventListener('touchend', stopDragItem);
+            document.addEventListener('keydown', handleKeyDown);
+            
+            ['solar-panel', 'wind-turbine', 'barn', 'field', 'battery', 'silo', 'water-pump'].forEach(itemType => {
+                const btn = document.getElementById(`build-${itemType}`);
+                if (btn) {
+                    btn.addEventListener('click', () => {
+                        console.log(`Bau-Modus gestartet für: ${itemType}`);
+                        startBuildMode(itemType);
+                    });
+                } else {
+                    console.warn(`Button build-${itemType} nicht gefunden!`);
+                }
+            });
+            
+            const sellEnergyBtn = document.getElementById('sell-energy-btn');
+            if (sellEnergyBtn) sellEnergyBtn.addEventListener('click', sellEnergy);
+            
+            const sellWheatBtn = document.getElementById('sell-wheat-btn');
+            if (sellWheatBtn) sellWheatBtn.addEventListener('click', sellWheat);
+            
+            const resetBtn = document.getElementById('reset-btn');
+            if (resetBtn) resetBtn.addEventListener('click', resetGame);
+            
+            const closeTutorialBtn = document.getElementById('close-tutorial');
+            if (closeTutorialBtn) closeTutorialBtn.addEventListener('click', () => {
+                document.getElementById('tutorial-modal').style.display = 'none';
+                gameState.firstLoad = false;
+                saveGame();
+            });
+            
+            const hireWorkerBtn = document.getElementById('hire-worker-btn');
+            if (hireWorkerBtn) hireWorkerBtn.addEventListener('click', () => hireWorker('technician'));
+            
+            const researchBtn = document.getElementById('research-btn');
+            if (researchBtn) researchBtn.addEventListener('click', showResearchModal);
+            
+            const closeResearchBtn = document.getElementById('close-research');
+            if (closeResearchBtn) closeResearchBtn.addEventListener('click', () => {
+                document.getElementById('research-modal').style.display = 'none';
+            });
+            
+            [1, 2, 3].forEach(i => {
+                const upgradeBtn = document.getElementById(`upgrade-btn-${i}`);
+                if (upgradeBtn) upgradeBtn.addEventListener('click', () => upgradeSelectedItem(i));
+            });
+        }
+
+        // Touchscreen-Unterstützung
+        function moveTempItemTouch(e) {
+            e.preventDefault();
+            if (!gameState.tempItem || !gameState.buildMode) return;
+            const touch = e.touches[0];
+            moveTempItem({ clientX: touch.clientX, clientY: touch.clientY });
+        }
+
+        function startDragItemTouch(e) {
+            e.preventDefault();
+            if (gameState.buildMode || !e.target.classList.contains('farm-item')) return;
+            const touch = e.touches[0];
+            const clickedItem = e.target;
+            const item = gameState.items.find(i => i.element === clickedItem);
+            if (item) {
+                gameState.isDragging = true;
+                gameState.draggedItem = item;
+                const rect = clickedItem.getBoundingClientRect();
+                gameState.dragOffsetX = touch.clientX - rect.left;
+                gameState.dragOffsetY = touch.clientY - rect.top;
+                clickedItem.style.zIndex = '10';
+                clickedItem.style.opacity = '0.8';
+            }
+        }
+
+        function dragItemTouch(e) {
+            e.preventDefault();
+            if (!gameState.isDragging || !gameState.draggedItem) return;
+            const touch = e.touches[0];
+            dragItem({ clientX: touch.clientX, clientY: touch.clientY });
+        }
+
+        // Tastatursteuerung
+        function handleKeyDown(e) {
+            if (e.key === 'Escape') {
+                if (gameState.isDragging) {
+                    stopDragItem();
+                } else {
+                    cancelBuildMode();
+                }
+            }
+        }
+
+        // Tutorial anzeigen
+        function showTutorial() {
+            if (gameState.firstLoad) {
+                document.getElementById('tutorial-modal').style.display = 'flex';
+            }
+        }
+
+        // Feld ernten bei Klick
+        function handleFieldHarvest(e) {
+            if (gameState.buildMode || gameState.isDragging) return;
+            const target = e.target;
+            if (!target.classList.contains('field') || !target.classList.contains('field-ripe')) return;
+            
+            const hasSilo = gameState.items.some(item => item.type === 'silo');
+            if (!hasSilo) {
+                showError('Ein Silo ist erforderlich, um Weizen zu sammeln!');
+                return;
+            }
+            
+            const totalSiloCapacity = gameState.items
+                .filter(item => item.type === 'silo')
+                .reduce((sum, silo) => {
+                    const base = itemsData.silo.capacity;
+                    const bonus = silo.level ? itemsData.silo.levels[silo.level - 1].capacityBonus : 0;
+                    return sum + base + bonus;
+                }, 0);
+            
+            const field = gameState.items.find(item => item.element === target);
+            if (field && field.isRipe) {
+                const wheatToAdd = itemsData.field.wheatYield();
+                
+                // Berücksichtige Arbeiter-Boni
+                const farmerBonus = gameState.workers.filter(w => w.type === 'farmer').length * 0.15;
+                wheatToAdd *= (1 + farmerBonus);
+                
+                if (gameState.wheatStock + wheatToAdd <= totalSiloCapacity) {
+                    gameState.wheatStock += wheatToAdd;
+                    field.growthStart = Date.now();
+                    field.growthProgress = 0;
+                    field.isRipe = false;
+                    field.element.classList.remove('field-seed', 'field-growing', 'field-ripe');
+                    field.element.classList.add('field-seed');
+                    field.element.setAttribute('data-income', `${itemsData.field.passiveIncome}€/119s`);
+                    updateSiloText();
+                    updateUI();
+                    saveGame();
+                } else {
+                    showError('Nicht genug Silo-Kapazität!');
+                }
+            }
+        }
+
+        // Silo-Text aktualisieren
+        function updateSiloText() {
+            const totalSiloCapacity = gameState.items
+                .filter(item => item.type === 'silo')
+                .reduce((sum, silo) => {
+                    const base = itemsData.silo.capacity;
+                    const bonus = silo.level ? itemsData.silo.levels[silo.level - 1].capacityBonus : 0;
+                    return sum + base + bonus;
+                }, 0);
+            
+            gameState.items
+                .filter(item => item.type === 'silo')
+                .forEach(silo => {
+                    silo.element.setAttribute('data-income', `${gameState.wheatStock}/${totalSiloCapacity} Weizen`);
+                    silo.element.textContent = itemsData.silo.name;
+                });
+        }
+
+        // Energie-System starten
+        function startEnergySystem() {
+            gameState.energyTimer = setInterval(updateEnergy, 2000);
+            gameState.timers.push(gameState.energyTimer);
+        }
+
+        // Energie aktualisieren
+        function updateEnergy() {
+            const now = Date.now();
+            const deltaTime = (now - gameState.lastEnergyUpdate) / 1000;
+            gameState.lastEnergyUpdate = now;
+            
+            const phase = dayPhases[gameState.dayPhase];
+            const weather = weatherConditions[gameState.weather];
+            const season = seasons[gameState.season];
+            const productionMultiplier = phase ? phase.productionMultiplier : 0;
+
+            // Produktion berechnen mit Berücksichtigung von Jahreszeiten und Forschung
+            gameState.energyProduction = gameState.items
+                .reduce((sum, item) => {
+                    let production = 0;
+                    if (item.type === 'solar-panel') {
+                        const base = itemsData['solar-panel'].basePower / 5;
+                        const bonus = item.level ? itemsData['solar-panel'].levels[item.level - 1].powerBonus / 5 : 0;
+                        let researchBonus = 1;
+                        if (researchTree['solar-efficiency']?.unlocked) researchBonus = 1.15;
+                        production = (base + bonus) * productionMultiplier * weather.solarMultiplier * season.solarMultiplier * researchBonus;
+                    } else if (item.type === 'wind-turbine') {
+                        const base = itemsData['wind-turbine'].basePower / 5;
+                        const bonus = item.level ? itemsData['wind-turbine'].levels[item.level - 1].powerBonus / 5 : 0;
+                        const windMultiplier = gameState.dayPhase === 'night' ? 2 : 1;
+                        let researchBonus = 1;
+                        if (researchTree['wind-efficiency']?.unlocked) researchBonus = 1.2;
+                        production = (base + bonus) * windMultiplier * weather.windMultiplier * season.windMultiplier * researchBonus;
+                    }
+                    return sum + production;
+                }, 0);
+
+            // Verbrauch berechnen
+            gameState.energyConsumption = gameState.items.reduce((sum, item) => {
+                let consumption = 0;
+                if (item.type === 'barn' || item.type === 'field' || item.type === 'silo' || item.type === 'water-pump') {
+                    consumption = -itemsData[item.type].power / 3600;
+                } else if (item.type === 'battery' && gameState.energy > 0) {
+                    let efficiency = itemsData.battery.efficiency + (item.level ? itemsData.battery.levels[item.level - 1].efficiencyBonus : 0);
+                    if (researchTree['battery-tech']?.unlocked) efficiency *= 1.2;
+                    consumption = (1 - efficiency) * gameState.energy * 0.0001;
+                }
+                return sum + consumption;
+            }, 0);
+
+            const energyDemand = gameState.energyConsumption * deltaTime;
+            const energyProduced = gameState.energyProduction * deltaTime;
+            const netEnergyChange = energyProduced - energyDemand;
+            gameState.totalEnergy += energyProduced;
+            
+            if (netEnergyChange >= 0 || gameState.dayPhase !== 'night') {
+                gameState.energy += netEnergyChange;
+                gameState.autoPurchaseActive = false;
+            } else {
+                if (gameState.energy >= Math.abs(energyDemand)) {
+                    gameState.energy += netEnergyChange;
+                    gameState.autoPurchaseActive = false;
+                } else {
+                    const shortfall = Math.abs(energyDemand) - gameState.energy;
+                    const purchaseCost = shortfall * gameState.energyPrice * 1.5;
+                    if (gameState.money >= purchaseCost) {
+                        gameState.money -= purchaseCost;
+                        gameState.totalProfit -= purchaseCost;
+                        gameState.energy = 0;
+                        if (!gameState.autoPurchaseActive) {
+                            showAutoPurchasePopup(shortfall, purchaseCost);
+                            gameState.autoPurchaseActive = true;
+                        }
+                    } else {
+                        showError('Nicht genug Geld für Stromkauf!');
+                        gameState.energy = 0;
+                    }
+                }
+            }
+            
+            gameState.energy = Math.max(0, Math.min(gameState.energy, gameState.energyCapacity));
+            updateBatteryLevels();
+            calculateCO2();
+            updateUI();
+        }
+
+        // CO2-Berechnung
+        function calculateCO2() {
+            gameState.co2Emissions = gameState.items.reduce((sum, item) => {
+                if (item.type === 'barn') return sum + 10;
+                if (item.type === 'silo') return sum + 5;
+                return sum;
+            }, 0);
+        }
+
+        // Auto-Purchase Popup anzeigen
+        function showAutoPurchasePopup(shortfall, cost) {
+            const popup = document.createElement('div');
+            popup.className = 'auto-purchase-popup';
+            popup.textContent = `Kein Strom mehr! ${shortfall.toFixed(1)} kWh für ${cost.toFixed(2)}€ gekauft.`;
+            popup.style.position = 'absolute';
+            popup.style.top = '50px';
+            popup.style.left = '50%';
+            popup.style.transform = 'translateX(-50%)';
+            popup.style.backgroundColor = 'rgba(255, 165, 0, 0.9)';
+            popup.style.color = '#333';
+            popup.style.padding = '15px';
+            popup.style.borderRadius = '5px';
+            popup.style.zIndex = '1000';
+            document.body.appendChild(popup);
+            setTimeout(() => popup.remove(), 3000);
+        }
+
+        // Batterie-Füllstand visualisieren
+        function updateBatteryLevels() {
+            const totalCapacity = gameState.energyCapacity;
+            if (totalCapacity === 0) return;
+            
+            gameState.items.filter(item => item.type === 'battery').forEach(battery => {
+                const fillPercentage = (gameState.energy / totalCapacity) * 100;
+                battery.element.style.setProperty('--fill-level', `${fillPercentage}%`);
+                
+                const itemData = itemsData.battery;
+                const level = battery.level || 0;
+                let capacity = itemData.capacity + (level > 0 ? itemData.levels[level - 1].capacityBonus : 0);
+                if (researchTree['battery-tech']?.unlocked) capacity *= 1.2;
+                
+                let efficiency = (itemData.efficiency + (level > 0 ? itemData.levels[level - 1].efficiencyBonus : 0)) * 100;
+                if (researchTree['battery-tech']?.unlocked) efficiency *= 1.2;
+                
+                battery.element.setAttribute('data-income', `${capacity.toFixed(1)} kWh\n${efficiency.toFixed(1)}% Effizienz`);
+                battery.element.textContent = itemData.name;
+            });
+        }
+
+        // Wachstumsmechanismus für Felder
+        function updateFieldGrowth() {
+            gameState.items
+                .filter(item => item.type === 'field')
+                .forEach(field => {
+                    if (!field.growthStart) {
+                        field.growthStart = Date.now();
+                        field.growthProgress = 0;
+                    }
+                    
+                    const nearbyPumps = gameState.items
+                        .filter(item => item.type === 'water-pump')
+                        .filter(pump => {
+                            const rect1 = field.element.getBoundingClientRect();
+                            const rect2 = pump.element.getBoundingClientRect();
+                            const dx = (rect1.left + rect1.width / 2) - (rect2.left + rect2.width / 2);
+                            const dy = (rect1.top + rect1.height / 2) - (rect2.top + rect2.height / 2);
+                            return Math.sqrt(dx * dx + dy * dy) < 150;
+                        }).length;
+                    
+                    let growthTime = itemsData.field.growthTime * (1 - nearbyPumps * itemsData['water-pump'].growthBonus);
+                    if (researchTree['advanced-agri']?.unlocked) growthTime *= 0.7;
+                    
+                    const elapsed = Date.now() - field.growthStart;
+                    field.growthProgress = Math.min(elapsed / growthTime, 1);
+                    const stage = field.growthProgress >= 1 ? 2 : Math.floor(field.growthProgress * 2);
+                    
+                    field.element.classList.remove('field-seed', 'field-growing', 'field-ripe');
+                    field.element.classList.add(`field-${['seed', 'growing', 'ripe'][stage]}`);
+                    field.element.setAttribute('data-income', field.isRipe ? 'Fertig zum Ernten' : `${itemsData.field.passiveIncome}€/119s`);
+                    field.element.textContent = itemsData.field.name;
+                    
+                    if (field.growthProgress >= 1 && !field.isRipe) {
+                        field.isRipe = true;
+                        updateUI();
+                    }
+                });
+        }
+
+        // Jahreszeiten-Zyklus
+        function startSeasonCycle() {
+            gameState.seasonTimer = setInterval(() => {
+                gameState.seasonDay++;
+                if (gameState.seasonDay > seasons[gameState.season].duration) {
+                    nextSeason();
+                }
+                updateUI();
+            }, gameState.dayDuration / seasons[gameState.season].duration);
+            gameState.timers.push(gameState.seasonTimer);
+        }
+
+        function nextSeason() {
+            const seasonOrder = ['spring', 'summer', 'autumn', 'winter'];
+            const currentIndex = seasonOrder.indexOf(gameState.season);
+            gameState.season = seasonOrder[(currentIndex + 1) % 4];
+            gameState.seasonDay = 1;
+            
+            // Farm-Bereich aktualisieren
+            const farmArea = document.getElementById('farm-area');
+            farmArea.classList.remove('spring', 'summer', 'autumn', 'winter');
+            farmArea.classList.add(gameState.season);
+            
+            addEvent(`Neue Jahreszeit: ${gameState.season}`, 'neutral');
+            updateUI();
+        }
+
+        // Zufallsereignisse
+        function startRandomEvents() {
+            gameState.eventTimer = setInterval(() => {
+                if (Math.random() < 0.1) { // 10% Chance pro Tag
+                    triggerRandomEvent();
+                }
+            }, gameState.dayDuration);
+            gameState.timers.push(gameState.eventTimer);
+        }
+
+        function triggerRandomEvent() {
+            const possibleEvents = randomEvents.filter(e => Math.random() < e.probability);
+            if (possibleEvents.length > 0) {
+                const event = possibleEvents[Math.floor(Math.random() * possibleEvents.length)];
+                event.effect();
+            }
+        }
+
+        function addEvent(message, type = 'neutral') {
+            const eventLog = document.getElementById('event-log');
+            if (eventLog) {
+                const eventEntry = document.createElement('div');
+                eventEntry.className = `event-entry event-${type}`;
+                eventEntry.textContent = `Tag ${gameState.day}: ${message}`;
+                eventLog.appendChild(eventEntry);
+                eventLog.scrollTop = eventLog.scrollHeight;
+            }
+        }
+
+        // Forschungssystem
+        function showResearchModal() {
+            const modal = document.getElementById('research-modal');
+            const researchOptions = document.getElementById('research-options');
+            researchOptions.innerHTML = '';
+            
+            Object.entries(researchTree).forEach(([id, research]) => {
+                const canResearch = research.requirements.every(reqId => researchTree[reqId].unlocked);
+                const btn = document.createElement('button');
+                btn.className = `research-option ${research.unlocked ? 'unlocked' : ''}`;
+                btn.textContent = `${research.name} (${research.cost}€) - ${research.effect}`;
+                btn.disabled = !canResearch || research.unlocked;
+                btn.onclick = () => researchTechnology(id);
+                researchOptions.appendChild(btn);
+            });
+            
+            modal.style.display = 'flex';
+        }
+
+        function researchTechnology(researchId) {
+            const research = researchTree[researchId];
+            if (gameState.money >= research.cost) {
+                gameState.money -= research.cost;
+                research.unlocked = true;
+                addEvent(`Forschung abgeschlossen: ${research.name}`, 'good');
+                updateUI();
+                saveGame();
+            }
+        }
+
+        // Mitarbeitersystem
+        function hireWorker(type) {
+            const workerType = workerTypes[type];
+            if (gameState.money >= workerType.cost) {
+                gameState.money -= workerType.cost;
+                gameState.workers.push({ type, salary: workerType.cost / 2 });
+                addEvent(`Neuer Mitarbeiter eingestellt: ${workerType.name}`, 'good');
+                updateUI();
+                saveGame();
+            } else {
+                showError('Nicht genug Geld!');
+            }
+        }
+
+        // Bau-Modus starten
+        function startBuildMode(itemType) {
+            if (!itemsData[itemType]) {
+                console.error(`Ungültiger Gebäudetyp: ${itemType}`);
+                showError(`Ungültiger Gebäudetyp: ${itemType}`);
+                return;
+            }
+            
+            cancelBuildMode();
+            gameState.buildMode = itemType;
+            const item = itemsData[itemType];
+            
+            const tempItem = document.createElement('div');
+            tempItem.className = `farm-item ${itemType} temp-item`;
+            tempItem.style.width = `${item.width}px`;
+            tempItem.style.height = `${item.height}px`;
+            tempItem.textContent = item.name;
+            
+            const farmArea = document.getElementById('farm-area');
+            if (farmArea) {
+                farmArea.appendChild(tempItem);
+                gameState.tempItem = tempItem;
+            } else {
+                console.error('Farm-Bereich nicht gefunden beim Platzieren!');
+            }
+        }
+
+        // Temporäres Objekt bewegen
+        function moveTempItem(e) {
+            if (!gameState.tempItem || !gameState.buildMode) return;
+            
+            const farmArea = document.getElementById('farm-area');
+            const rect = farmArea.getBoundingClientRect();
+            const item = itemsData[gameState.buildMode];
+            
+            let x = e.clientX - rect.left - item.width / 2;
+            let y = e.clientY - rect.top - item.height / 2;
+            
+            x = Math.max(0, Math.min(x, farmArea.clientWidth - item.width));
+            y = Math.max(0, Math.min(y, farmArea.clientHeight - item.height));
+            
+            gameState.tempItem.style.left = `${x}px`;
+            gameState.tempItem.style.top = `${y}px`;
+            
+            if (checkCollision(gameState.tempItem)) {
+                gameState.tempItem.classList.add('invalid-position');
+            } else {
+                gameState.tempItem.classList.remove('invalid-position');
+            }
+        }
+
+        // Überlappung prüfen
+        function checkCollision(element) {
+            const rect1 = element.getBoundingClientRect();
+            return gameState.items.some(item => {
+                if (gameState.isDragging && item.element === gameState.draggedItem?.element) return false;
+                const rect2 = item.element.getBoundingClientRect();
+                return !(rect1.right < rect2.left || rect1.left > rect2.right ||
+                        rect1.bottom < rect2.top || rect1.top > rect2.bottom);
+            });
+        }
+
+        // Objekt platzieren
+        function placeItem(e) {
+            if (gameState.isDragging) return;
+            if (!gameState.tempItem || !gameState.buildMode || checkCollision(gameState.tempItem)) return;
+            
+            const itemType = gameState.buildMode;
+            const item = itemsData[itemType];
+            
+            if (gameState.money >= item.cost) {
+                gameState.money -= item.cost;
+                gameState.totalProfit -= item.cost;
+                
+                const newItem = document.createElement('div');
+                newItem.className = `farm-item ${itemType}`;
+                newItem.style.left = gameState.tempItem.style.left;
+                newItem.style.top = gameState.tempItem.style.top;
+                
+                updateItemText(newItem, itemType, item);
+                
+                if (itemType === 'solar-panel' || itemType === 'wind-turbine' || itemType === 'battery' || itemType === 'silo') {
+                    newItem.classList.add('lvl1');
+                } else if (itemType === 'barn') {
+                    gameState.income += item.income;
+                } else if (itemType === 'field') {
+                    newItem.classList.add('field-seed');
+                } else if (itemType === 'water-pump') {
+                    newItem.setAttribute('data-income', '20% Wachstumsbonus');
+                }
+                
+                newItem.dataset.originalX = parseInt(newItem.style.left) || 0;
+                newItem.dataset.originalY = parseInt(newItem.style.top) || 0;
+                newItem.onclick = () => selectItem(newItem);
+                
+                document.getElementById('farm-area').appendChild(newItem);
+                
+                gameState.items.push({ 
+                    type: itemType, 
+                    element: newItem, 
+                    level: 0, 
+                    growthStart: itemType === 'field' ? Date.now() : null, 
+                    growthProgress: 0, 
+                    isRipe: false 
+                });
+                
+                if (itemType === 'battery') {
+                    let capacity = item.capacity;
+                    if (researchTree['battery-tech']?.unlocked) capacity *= 1.2;
+                    gameState.energyCapacity += capacity;
+                }
+                
+                updatePassiveIncome();
+                updateSiloText();
+                cancelBuildMode();
+                updateUI();
+                saveGame();
+            } else {
+                showError('Nicht genug Geld!');
+                cancelBuildMode();
+            }
+        }
+
+        // Fehler anzeigen
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+            errorDiv.style.position = 'absolute';
+            errorDiv.style.top = '10px';
+            errorDiv.style.left = '50%';
+            errorDiv.style.transform = 'translateX(-50%)';
+            document.body.appendChild(errorDiv);
+            setTimeout(() => errorDiv.remove(), 2000);
+        }
+
+        // Text im Gebäude aktualisieren
+        function updateItemText(element, itemType, itemData, level = 0) {
+            element.textContent = itemData.name;
+            let incomeText = '';
+            
+            if (itemType === 'solar-panel') {
+                const base = itemData.basePower;
+                const bonus = level > 0 ? itemData.levels[level - 1].powerBonus : 0;
+                let researchBonus = 1;
+                if (researchTree['solar-efficiency']?.unlocked) researchBonus = 1.15;
+                const weather = weatherConditions[gameState.weather];
+                const season = seasons[gameState.season];
+                incomeText = `${(base + bonus) * dayPhases[gameState.dayPhase].productionMultiplier * weather.solarMultiplier * season.solarMultiplier * researchBonus} kW/5s`;
+            } else if (itemType === 'wind-turbine') {
+                const base = itemData.basePower;
+                const bonus = level > 0 ? itemData.levels[level - 1].powerBonus : 0;
+                const windMultiplier = gameState.dayPhase === 'night' ? 2 : 1;
+                let researchBonus = 1;
+                if (researchTree['wind-efficiency']?.unlocked) researchBonus = 1.2;
+                const weather = weatherConditions[gameState.weather];
+                const season = seasons[gameState.season];
+                incomeText = `${(base + bonus) * windMultiplier * weather.windMultiplier * season.windMultiplier * researchBonus} kW/5s`;
+            } else if (itemType === 'barn') {
+                incomeText = `${itemData.income}€/Tag`;
+            } else if (itemType === 'field') {
+                const field = gameState.items.find(item => item.element === element);
+                let passiveIncome = itemsData.field.passiveIncome;
+                if (researchTree['advanced-agri']?.unlocked) passiveIncome *= 1.3;
+                incomeText = field && field.isRipe ? 'Fertig zum Ernten' : `${passiveIncome}€/119s`;
+            } else if (itemType === 'battery') {
+                let capacity = itemData.capacity + (level > 0 ? itemData.levels[level - 1].capacityBonus : 0);
+                if (researchTree['battery-tech']?.unlocked) capacity *= 1.2;
+                let efficiency = (itemData.efficiency + (level > 0 ? itemData.levels[level - 1].efficiencyBonus : 0)) * 100;
+                if (researchTree['battery-tech']?.unlocked) efficiency *= 1.2;
+                incomeText = `${capacity.toFixed(1)} kWh\n${efficiency.toFixed(1)}% Effizienz`;
+            } else if (itemType === 'silo') {
+                const totalSiloCapacity = gameState.items
+                    .filter(item => item.type === 'silo')
+                    .reduce((sum, silo) => {
+                        const base = itemsData.silo.capacity;
+                        const bonus = silo.level ? itemsData.silo.levels[silo.level - 1].capacityBonus : 0;
+                        return sum + base + bonus;
+                    }, 0);
+                incomeText = `${gameState.wheatStock}/${totalSiloCapacity} Weizen`;
+            } else if (itemType === 'water-pump') {
+                incomeText = '20% Wachstumsbonus';
+            }
+            
+            element.setAttribute('data-income', incomeText);
+        }
+
+        // Bau-Modus abbrechen
+        function cancelBuildMode() {
+            if (gameState.tempItem) {
+                gameState.tempItem.remove();
+                gameState.tempItem = null;
+            }
+            gameState.buildMode = null;
+        }
+
+        // Drag & Drop
+        function startDragItem(e) {
+            if (gameState.buildMode || !e.target.classList.contains('farm-item')) return;
+            
+            const clickedItem = e.target;
+            const item = gameState.items.find(i => i.element === clickedItem);
+            
+            if (item) {
+                gameState.isDragging = true;
+                gameState.draggedItem = item;
+                const rect = clickedItem.getBoundingClientRect();
+                gameState.dragOffsetX = e.clientX - rect.left;
+                gameState.dragOffsetY = e.clientY - rect.top;
+                clickedItem.style.zIndex = '10';
+                clickedItem.style.opacity = '0.8';
+            }
+        }
+
+        function dragItem(e) {
+            if (!gameState.isDragging || !gameState.draggedItem) return;
+            
+            const farmArea = document.getElementById('farm-area');
+            const rect = farmArea.getBoundingClientRect();
+            
+            let x = e.clientX - rect.left - gameState.dragOffsetX;
+            let y = e.clientY - rect.top - gameState.dragOffsetY;
+            
+            x = Math.max(0, Math.min(x, farmArea.clientWidth - gameState.draggedItem.element.offsetWidth));
+            y = Math.max(0, Math.min(y, farmArea.clientHeight - gameState.draggedItem.element.offsetHeight));
+            
+            gameState.draggedItem.element.style.left = `${x}px`;
+            gameState.draggedItem.element.style.top = `${y}px`;
+        }
+
+        function stopDragItem() {
+            if (gameState.isDragging && gameState.draggedItem) {
+                gameState.draggedItem.element.style.zIndex = '';
+                gameState.draggedItem.element.style.opacity = '';
+                
+                if (checkCollision(gameState.draggedItem.element)) {
+                    const item = gameState.draggedItem;
+                    item.element.style.left = `${parseInt(item.element.dataset.originalX)}px`;
+                    item.element.style.top = `${parseInt(item.element.dataset.originalY)}px`;
+                } else {
+                    gameState.draggedItem.element.dataset.originalX = parseInt(gameState.draggedItem.element.style.left) || 0;
+                    gameState.draggedItem.element.dataset.originalY = parseInt(gameState.draggedItem.element.style.top) || 0;
+                    saveGame();
+                }
+            }
+            
+            gameState.isDragging = false;
+            gameState.draggedItem = null;
+        }
+
+        // Item auswählen (für Upgrades)
+        function selectItem(element) {
+            if (gameState.isDragging) return;
+            
+            if (gameState.selectedItem) {
+                gameState.selectedItem.element.classList.remove('selected');
+            }
+            
+            const item = gameState.items.find(i => i.element === element);
+            
+            if (item && (item.type === 'solar-panel' || item.type === 'wind-turbine' || item.type === 'battery' || item.type === 'silo')) {
+                gameState.selectedItem = item;
+                element.classList.add('selected');
+                
+                const upgradeMenu = document.getElementById('upgrade-menu');
+                if (upgradeMenu) {
+                    upgradeMenu.style.display = 'block';
+                    updateUpgradeButtons(item.type, item.level);
+                }
+            } else {
+                gameState.selectedItem = null;
+                const upgradeMenu = document.getElementById('upgrade-menu');
+                if (upgradeMenu) upgradeMenu.style.display = 'none';
+            }
+        }
+
+        // Upgrade-Buttons aktualisieren
+        function updateUpgradeButtons(itemType, currentLevel) {
+            const itemData = itemsData[itemType];
+            
+            for (let i = 1; i <= 3; i++) {
+                const btn = document.getElementById(`upgrade-btn-${i}`);
+                if (!btn || i - 1 >= itemData.levels.length) {
+                    if (btn) btn.style.display = 'none';
+                    continue;
+                }
+                
+                btn.style.display = 'block';
+                const levelData = itemData.levels[i - 1];
+                
+                if (i <= currentLevel) {
+                    btn.disabled = true;
+                    btn.textContent = `Stufe ${i} (Bereits geupgradet)`;
+                } else if (i === currentLevel + 1) {
+                    btn.disabled = false;
+                    let bonusText = '';
+                    
+                    if (itemType === 'solar-panel' || itemType === 'wind-turbine') {
+                        bonusText = `+${levelData.powerBonus} kW/5s`;
+                    } else if (itemType === 'battery') {
+                        bonusText = `+${levelData.capacityBonus} kWh, +${(levelData.efficiencyBonus * 100).toFixed(1)}% Effizienz`;
+                    } else if (itemType === 'silo') {
+                        bonusText = `+${levelData.capacityBonus} Weizen`;
+                    }
+                    
+                    btn.textContent = `Stufe ${i} (${levelData.cost} €) ${bonusText}`;
+                } else {
+                    btn.disabled = true;
+                    btn.textContent = `Stufe ${i} (Stufe ${i - 1} erforderlich)`;
+                }
+            }
+        }
+
+        // Item upgraden
+        function upgradeSelectedItem(targetLevel) {
+            if (!gameState.selectedItem) return;
+            
+            const item = gameState.selectedItem;
+            const itemType = item.type;
+            const itemData = itemsData[itemType];
+            const currentLevel = item.level || 0;
+            
+            if (targetLevel !== currentLevel + 1) return;
+            
+            const upgradeCost = itemData.levels[currentLevel].cost;
+            
+            if (gameState.money >= upgradeCost) {
+                gameState.money -= upgradeCost;
+                gameState.totalProfit -= upgradeCost;
+                item.level = targetLevel;
+                item.element.className = `farm-item ${itemType} lvl${targetLevel} selected`;
+                updateItemText(item.element, itemType, itemData, targetLevel);
+                
+                if (itemType === 'battery') {
+                    let capacityBonus = itemData.levels[currentLevel].capacityBonus;
+                    if (researchTree['battery-tech']?.unlocked) capacityBonus *= 1.2;
+                    gameState.energyCapacity += capacityBonus;
+                }
+                
+                updateSiloText();
+                updateUI();
+                saveGame();
+            } else {
+                showError('Nicht genug Geld für dieses Upgrade!');
+            }
+        }
+
+        // Strom verkaufen
+        function sellEnergy() {
+            if (gameState.energy <= 0) {
+                const sellInfo = document.getElementById('sell-info');
+                if (sellInfo) sellInfo.textContent = "Kein Strom zum Verkauf!";
+                return;
+            }
+            
+            const earned = gameState.energy * gameState.energyPrice;
+            gameState.money += earned;
+            gameState.totalProfit += earned;
+            gameState.energy = 0;
+            
+            const sellInfo = document.getElementById('sell-info');
+            if (sellInfo) {
+                sellInfo.textContent = `Verkauft: ${gameState.energy.toFixed(1)} kWh für ${earned.toFixed(2)}€`;
+            }
+            
+            const moneyChange = document.createElement('div');
+            moneyChange.className = 'money-change';
+            moneyChange.textContent = `+${earned.toFixed(2)}€`;
+            moneyChange.style.left = '50%';
+            moneyChange.style.top = '50%';
+            
+            const uiPanel = document.getElementById('ui-panel');
+            if (uiPanel) {
+                uiPanel.appendChild(moneyChange);
+                setTimeout(() => moneyChange.remove(), 1000);
+            }
+            
+            updateUI();
+            saveGame();
+        }
+
+        // Weizen verkaufen
+        function sellWheat() {
+            const hasSilo = gameState.items.some(item => item.type === 'silo');
+            const sellInfo = document.getElementById('sell-info');
+            
+            if (!hasSilo) {
+                if (sellInfo) sellInfo.textContent = "Ein Silo ist erforderlich, um Weizen zu verkaufen!";
+                return;
+            }
+            
+            if (gameState.wheatStock <= 0) {
+                if (sellInfo) sellInfo.textContent = "Kein Weizen zum Verkauf!";
+                return;
+            }
+            
+            const earned = gameState.wheatStock * gameState.wheatPrice;
+            gameState.money += earned;
+            gameState.totalProfit += earned;
+            
+            if (sellInfo) {
+                sellInfo.textContent = `Verkauft: ${gameState.wheatStock} Weizen für ${earned.toFixed(2)}€`;
+            }
+            
+            gameState.wheatStock = 0;
+            updateSiloText();
+            
+            const moneyChange = document.createElement('div');
+            moneyChange.className = 'money-change';
+            moneyChange.textContent = `+${earned.toFixed(2)}€`;
+            moneyChange.style.left = '50%';
+            moneyChange.style.top = '50%';
+            
+            const uiPanel = document.getElementById('ui-panel');
+            if (uiPanel) {
+                uiPanel.appendChild(moneyChange);
+                setTimeout(() => moneyChange.remove(), 1000);
+            }
+            
+            updateUI();
+            saveGame();
+        }
+
+        // Passives Einkommen (Felder)
+        function startPassiveIncome() {
+            if (gameState.passiveIncomeTimer) clearInterval(gameState.passiveIncomeTimer);
+            
+            gameState.passiveIncomeTimer = setInterval(() => {
+                updateFieldGrowth();
+                updatePassiveIncome();
+                updateUI();
+            }, 2000);
+            
+            gameState.timers.push(gameState.passiveIncomeTimer);
+        }
+
+        // Passives Einkommen aktualisieren
+        function updatePassiveIncome() {
+            let baseIncome = gameState.items
+                .filter(item => item.type === 'field')
+                .reduce((sum, field) => sum + (field.isRipe ? 0 : itemsData['field'].passiveIncome), 0);
+            
+            if (researchTree['advanced-agri']?.unlocked) baseIncome *= 1.3;
+            
+            gameState.passiveIncome = baseIncome;
+        }
+
+        // Geldzuwachs-Animation
+        function showMoneyGain(element, amount) {
+            const rect = element.getBoundingClientRect();
+            const moneyChange = document.createElement('div');
+            moneyChange.className = 'money-change';
+            moneyChange.textContent = `+${amount}€`;
+            moneyChange.style.left = `${rect.left + rect.width / 2}px`;
+            moneyChange.style.top = `${rect.top}px`;
+            document.body.appendChild(moneyChange);
+            setTimeout(() => moneyChange.remove(), 1000);
+        }
+
+        // Alle Timer löschen
+        function clearAllTimers() {
+            gameState.timers.forEach(timer => clearInterval(timer));
+            gameState.timers = [];
+            
+            if (gameState.passiveIncomeTimer) clearInterval(gameState.passiveIncomeTimer);
+            if (gameState.energyTimer) clearInterval(gameState.energyTimer);
+            if (gameState.dayCycleTimer) clearInterval(gameState.dayCycleTimer);
+            if (gameState.seasonTimer) clearInterval(gameState.seasonTimer);
+            if (gameState.eventTimer) clearInterval(gameState.eventTimer);
+        }
+
+        // Spielstand speichern
+        function saveGame() {
+            const saveData = {
+                money: gameState.money,
+                energy: gameState.energy,
+                energyCapacity: gameState.energyCapacity,
+                energyProduction: gameState.energyProduction,
+                energyConsumption: gameState.energyConsumption,
+                income: gameState.income,
+                passiveIncome: gameState.passiveIncome,
+                day: gameState.day,
+                seasonDay: gameState.seasonDay,
+                season: gameState.season,
+                workers: gameState.workers,
+                research: Object.fromEntries(
+                    Object.entries(researchTree).map(([id, research]) => [id, research.unlocked])
+                ),
+                events: gameState.events,
+                co2Emissions: gameState.co2Emissions,
+                weather: gameState.weather,
+                dayPhase: gameState.dayPhase,
+                wheatStock: gameState.wheatStock,
+                totalProfit: gameState.totalProfit,
+                totalEnergy: gameState.totalEnergy,
+                energyPrice: gameState.energyPrice,
+                wheatPrice: gameState.wheatPrice,
+                firstLoad: gameState.firstLoad,
+                items: gameState.items.map(item => ({
+                    type: item.type,
+                    x: parseInt(item.element.style.left) || 0,
+                    y: parseInt(item.element.style.top) || 0,
+                    level: item.level || 0,
+                    growthStart: item.growthStart || null,
+                    growthProgress: item.growthProgress || 0,
+                    isRipe: item.isRipe || false
+                })),
+                currentHour: gameState.currentHour,
+                currentMinute: gameState.currentMinute,
+                dayStartTime: gameState.dayStartTime
+            };
+            
+            try {
+                localStorage.setItem('solarFarmSave', JSON.stringify(saveData));
+            } catch (e) {
+                console.error('Fehler beim Speichern des Spielstands:', e);
+                showError('Spielstand konnte nicht gespeichert werden!');
+            }
+        }
+
+        // Spielstand laden
+        function loadGame() {
+            const savedData = localStorage.getItem('solarFarmSave');
+            
+            if (savedData) {
+                try {
+                    const parsedData = JSON.parse(savedData);
+                    
+                    if (!parsedData || typeof parsedData !== 'object') throw new Error('Ungültiger Spielstand');
+                    
+                    Object.assign(gameState, {
+                        money: parsedData.money ?? 1000,
+                        energy: parsedData.energy ?? 0,
+                        energyCapacity: parsedData.energyCapacity ?? 0,
+                        energyProduction: parsedData.energyProduction ?? 0,
+                        energyConsumption: parsedData.energyConsumption ?? 0,
+                        income: parsedData.income ?? 0,
+                        passiveIncome: parsedData.passiveIncome ?? 0,
+                        day: parsedData.day ?? 1,
+                        seasonDay: parsedData.seasonDay ?? 1,
+                        season: parsedData.season ?? 'summer',
+                        workers: parsedData.workers ?? [],
+                        events: parsedData.events ?? [],
+                        co2Emissions: parsedData.co2Emissions ?? 0,
+                        weather: parsedData.weather ?? 'sunny',
+                        dayPhase: parsedData.dayPhase ?? 'night',
+                        currentHour: parsedData.currentHour ?? 0,
+                        currentMinute: parsedData.currentMinute ?? 0,
+                        dayStartTime: parsedData.dayStartTime ?? Date.now(),
+                        wheatStock: parsedData.wheatStock ?? 0,
+                        totalProfit: parsedData.totalProfit ?? 0,
+                        totalEnergy: parsedData.totalEnergy ?? 0,
+                        energyPrice: parsedData.energyPrice ?? 1.00,
+                        wheatPrice: parsedData.wheatPrice ?? 0.50,
+                        firstLoad: parsedData.firstLoad ?? true,
+                        items: []
+                    });
+                    
+                    // Forschung laden
+                    if (parsedData.research) {
+                        Object.entries(parsedData.research).forEach(([id, unlocked]) => {
+                            if (researchTree[id]) researchTree[id].unlocked = unlocked;
+                        });
+                    }
+                    
+                    document.getElementById('farm-area').innerHTML = '';
+                    
+                    if (parsedData.items && Array.isArray(parsedData.items)) {
+                        parsedData.items.forEach(itemData => {
+                            if (!itemsData[itemData.type]) {
+                                console.warn(`Ungültiger Gebäudetyp im Spielstand: ${itemData.type}`);
+                                return;
+                            }
+                            
+                            const itemType = itemData.type;
+                            const item = itemsData[itemType];
+                            const newItem = document.createElement('div');
+                            newItem.className = `farm-item ${itemType}`;
+                            
+                            if ((itemType === 'solar-panel' || itemType === 'wind-turbine' || itemType === 'battery' || itemType === 'silo') && itemData.level) {
+                                newItem.classList.add(`lvl${itemData.level}`);
+                            } else if (itemType === 'field') {
+                                const stage = itemData.isRipe ? 2 : Math.floor(itemData.growthProgress * 2);
+                                newItem.classList.add(`field-${['seed', 'growing', 'ripe'][stage]}`);
+                            }
+                            
+                            newItem.style.left = `${itemData.x || 0}px`;
+                            newItem.style.top = `${itemData.y || 0}px`;
+                            newItem.dataset.originalX = itemData.x || 0;
+                            newItem.dataset.originalY = itemData.y || 0;
+                            
+                            updateItemText(newItem, itemType, item, itemData.level || 0);
+                            newItem.onclick = () => selectItem(newItem);
+                            
+                            document.getElementById('farm-area').appendChild(newItem);
+                            
+                            gameState.items.push({
+                                type: itemType,
+                                element: newItem,
+                                level: itemData.level || 0,
+                                growthStart: itemData.growthStart || (itemType === 'field' ? Date.now() : null),
+                                growthProgress: itemData.growthProgress || 0,
+                                isRipe: itemData.isRipe || false
+                            });
+                        });
+                    }
+                    
+                    updatePassiveIncome();
+                    updateSiloText();
+                    updateDayPhase();
+                    updateWeatherDisplay();
+                    
+                } catch (e) {
+                    console.error('Fehler beim Laden des Spielstands:', e);
+                    resetGame();
+                }
+            } else {
+                gameState.currentHour = 0;
+                gameState.currentMinute = 0;
+                gameState.dayPhase = 'night';
+                gameState.weather = 'sunny';
+                updateDayPhase();
+                updateWeatherDisplay();
+            }
+        }
+
+        // Spiel zurücksetzen
+        function resetGame() {
+            console.log('Spiel wird zurückgesetzt...');
+            
+            if (confirm('Wirklich zurücksetzen? Fortschritt geht verloren!')) {
+                clearAllTimers();
+                localStorage.removeItem('solarFarmSave');
+                
+                Object.assign(gameState, {
+                    money: 1000,
+                    energy: 0,
+                    energyCapacity: 0,
+                    energyProduction: 0,
+                    energyConsumption: 0,
+                    income: 0,
+                    passiveIncome: 0,
+                    day: 1,
+                    seasonDay: 1,
+                    season: 'summer',
+                    items: [],
+                    workers: [],
+                    research: {},
+                    events: [],
+                    co2Emissions: 0,
+                    weather: 'sunny',
+                    dayPhase: 'night',
+                    currentHour: 0,
+                    currentMinute: 0,
+                    dayStartTime: Date.now(),
+                    wheatStock: 0,
+                    totalProfit: 0,
+                    totalEnergy: 0,
+                    energyPrice: 1.00,
+                    wheatPrice: 0.50,
+                    firstLoad: true,
+                    selectedItem: null,
+                    buildMode: null,
+                    tempItem: null,
+                    isDragging: false,
+                    draggedItem: null,
+                    lastEnergyUpdate: Date.now(),
+                    autoPurchaseActive: false
+                });
+                
+                // Forschung zurücksetzen
+                Object.values(researchTree).forEach(research => research.unlocked = false);
+                
+                const farmArea = document.getElementById('farm-area');
+                if (farmArea) farmArea.innerHTML = '';
+                
+                const upgradeMenu = document.getElementById('upgrade-menu');
+                if (upgradeMenu) upgradeMenu.style.display = 'none';
+                
+                const sellInfo = document.getElementById('sell-info');
+                if (sellInfo) sellInfo.textContent = '';
+                
+                updateUI();
+                updateTimeDisplay();
+                updateDayPhase();
+                updateWeatherDisplay();
+                
+                startDayCycle();
+                startPassiveIncome();
+                startEnergySystem();
+                startSeasonCycle();
+                startRandomEvents();
+                
+                showTutorial();
+                
+                console.log('Spiel zurückgesetzt, Tagesphase:', gameState.dayPhase, 'Zeit:', gameState.currentHour);
+            }
+        }
+
+        // Tageszyklus starten
+        function startDayCycle() {
+            console.log('Tageszyklus wird gestartet...');
+            
+            clearInterval(gameState.dayCycleTimer);
+            gameState.dayStartTime = Date.now();
+            
+            gameState.dayCycleTimer = setInterval(() => {
+                updateGameTime();
+            }, 100);
+            
+            gameState.timers.push(gameState.dayCycleTimer);
+            
+            const saveInterval = setInterval(saveGame, 30000);
+            gameState.timers.push(saveInterval);
+        }
+
+        // Spielzeit aktualisieren
+        function updateGameTime() {
+            const now = Date.now();
+            const elapsed = now - gameState.dayStartTime;
+            const progress = Math.min(elapsed / gameState.dayDuration, 1);
+            
+            const progressBar = document.getElementById('day-progress');
+            if (progressBar) {
+                progressBar.style.width = `${progress * 100}%`;
+            }
+            
+            const totalSeconds = progress * 24 * 60 * 60;
+            gameState.currentHour = Math.floor(totalSeconds / 3600) % 24;
+            gameState.currentMinute = Math.floor((totalSeconds % 3600) / 60);
+            
+            updateTimeDisplay();
+            updateDayPhase();
+            
+            if (progress >= 1) nextDay();
+        }
+
+        // Zeit-Anzeige aktualisieren
+        function updateTimeDisplay() {
+            const timeDisplay = document.getElementById('time-display');
+            if (timeDisplay) {
+                const formattedHour = gameState.currentHour.toString().padStart(2, '0');
+                const formattedMinute = gameState.currentMinute.toString().padStart(2, '0');
+                timeDisplay.textContent = `${formattedHour}:${formattedMinute}`;
+            }
+        }
+
+        // Tagesphase aktualisieren
+        function updateDayPhase() {
+            const farmArea = document.getElementById('farm-area');
+            if (!farmArea) {
+                console.error('Farm-Bereich nicht gefunden in updateDayPhase!');
+                return;
+            }
+            
+            let newPhase = 'night';
+            
+            for (const [phase, data] of Object.entries(dayPhases)) {
+                if (gameState.currentHour >= data.start && gameState.currentHour < data.end) {
+                    newPhase = phase;
+                    break;
+                }
+            }
+            
+            if (newPhase !== gameState.dayPhase) {
+                farmArea.classList.remove('night', 'dawn', 'day', 'dusk');
+                farmArea.classList.add(newPhase);
+                gameState.dayPhase = newPhase;
+                console.log('Tagesphase gewechselt zu:', newPhase, 'Zeit:', gameState.currentHour);
+            }
+            
+            updateWeatherDisplay();
+            gameState.items.forEach(item => updateItemText(item.element, item.type, itemsData[item.type], item.level));
+        }
+
+        // Wetter aktualisieren
+        function updateWeatherDisplay() {
+            const farmArea = document.getElementById('farm-area');
+            const weatherDisplay = document.getElementById('weather-display');
+            
+            if (weatherDisplay) {
+                weatherDisplay.textContent = `Wetter: ${weatherConditions[gameState.weather].description}`;
+            }
+            
+            farmArea.classList.remove('cloudy', 'windy');
+            
+            if (gameState.weather !== 'sunny') {
+                farmArea.classList.add(gameState.weather);
+            }
+        }
+
+        // Nächster Tag
+        function nextDay() {
+            // Tageseinkommen
+            gameState.money += gameState.income;
+            gameState.totalProfit += gameState.income;
+            
+            // Mitarbeitergehälter zahlen
+            const workerCost = gameState.workers.reduce((sum, worker) => sum + worker.salary, 0);
+            gameState.money -= workerCost;
+            gameState.totalProfit -= workerCost;
+            
+            if (workerCost > 0) {
+                addEvent(`Mitarbeitergehälter: -${workerCost}€`, 'bad');
+            }
+            
+            gameState.day++;
+            gameState.currentHour = 0;
+            gameState.currentMinute = 0;
+            gameState.dayPhase = 'night';
+            gameState.dayStartTime = Date.now();
+            
+            // Marktpreise aktualisieren
+            gameState.energyPrice = (0.8 + Math.random() * 0.4).toFixed(2);
+            gameState.wheatPrice = (0.4 + Math.random() * 0.2).toFixed(2);
+            
+            // Zufälliges Wetterereignis
+            if (Math.random() < 0.2) {
+                const weathers = Object.keys(weatherConditions);
+                gameState.weather = weathers[Math.floor(Math.random() * weathers.length)];
+            } else {
+                gameState.weather = 'sunny';
+            }
+            
+            updateUI();
+            updateTimeDisplay();
+            updateDayPhase();
+            updateWeatherDisplay();
+            saveGame();
+        }
+
+        // UI aktualisieren
+        function updateUI() {
+            const elements = {
+                money: document.getElementById('money'),
+                income: document.getElementById('income'),
+                passiveIncome: document.getElementById('passive-income'),
+                day: document.getElementById('day'),
+                seasonDay: document.getElementById('season-day'),
+                energyProduction: document.getElementById('energy-production'),
+                energyConsumption: document.getElementById('energy-consumption'),
+                energyNet: document.getElementById('energy-net'),
+                energyStorage: document.getElementById('energy-storage'),
+                energyCapacity: document.getElementById('energy-capacity'),
+                wheatStock: document.getElementById('wheat-stock'),
+                sellWheatBtn: document.getElementById('sell-wheat-btn'),
+                energyPrice: document.getElementById('energy-price'),
+                wheatPrice: document.getElementById('wheat-price'),
+                totalProfit: document.getElementById('total-profit'),
+                totalEnergy: document.getElementById('total-energy'),
+                workers: document.getElementById('workers'),
+                co2: document.getElementById('co2'),
+                seasonDisplay: document.getElementById('season-display')
+            };
+            
+            if (elements.money) elements.money.textContent = Math.floor(gameState.money);
+            if (elements.income) elements.income.textContent = gameState.income;
+            if (elements.passiveIncome) elements.passiveIncome.textContent = gameState.passiveIncome;
+            if (elements.day) elements.day.textContent = gameState.day;
+            if (elements.seasonDay) elements.seasonDay.textContent = gameState.seasonDay;
+            
+            if (elements.energyProduction) {
+                elements.energyProduction.textContent = `${(gameState.energyProduction * 5).toFixed(1)} kW/5s`;
+            }
+            
+            if (elements.energyConsumption) {
+                elements.energyConsumption.textContent = `${(gameState.energyConsumption * 3600).toFixed(1)} kW/h`;
+            }
+            
+            if (elements.energyNet) {
+                const netEnergy = (gameState.energyProduction * 5) - (gameState.energyConsumption * 3600 / 5);
+                elements.energyNet.textContent = `${netEnergy.toFixed(1)} kW/5s`;
+                elements.energyNet.className = netEnergy >= 0 ? 'energy-value' : 'energy-value negative';
+            }
+            
+            if (elements.energyStorage) elements.energyStorage.textContent = `${gameState.energy.toFixed(1)} kWh`;
+            if (elements.energyCapacity) elements.energyCapacity.textContent = `${gameState.energyCapacity.toFixed(1)} kWh`;
+            if (elements.wheatStock) elements.wheatStock.textContent = gameState.wheatStock;
+            
+            if (elements.sellWheatBtn) {
+                const hasSilo = gameState.items.some(item => item.type === 'silo');
+                elements.sellWheatBtn.style.display = hasSilo ? 'block' : 'none';
+            }
+            
+            if (elements.energyPrice) elements.energyPrice.textContent = gameState.energyPrice;
+            if (elements.wheatPrice) elements.wheatPrice.textContent = gameState.wheatPrice;
+            if (elements.totalProfit) elements.totalProfit.textContent = Math.floor(gameState.totalProfit);
+            if (elements.totalEnergy) elements.totalEnergy.textContent = gameState.totalEnergy.toFixed(1);
+            if (elements.workers) elements.workers.textContent = gameState.workers.length;
+            if (elements.co2) elements.co2.textContent = gameState.co2Emissions.toFixed(1);
+            
+            if (elements.seasonDisplay) {
+                elements.seasonDisplay.textContent = `Jahreszeit: ${gameState.season}`;
+            }
+            
+            // Forschungs-Button nur anzeigen, wenn mindestens Level 1 Gebäude vorhanden
+            const researchBtn = document.getElementById('research-btn');
+            if (researchBtn) {
+                researchBtn.style.display = gameState.items.some(i => i.level >= 1) ? 'block' : 'none';
+            }
+        }
+
+        // Spiel starten
+        window.onload = () => {
+            try {
+                initGame();
+            } catch (e) {
+                console.error('Fehler bei der Spielinitialisierung:', e);
+                showError('Spiel konnte nicht gestartet werden! Bitte Seite neu laden.');
+            }
+        };
+    </script>
+</body>
+</html>

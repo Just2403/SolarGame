@@ -1,0 +1,381 @@
+/* Google Fonts einbinden */
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');
+/* Grundlayout */
+body {
+font-family: 'Roboto Mono', monospace;
+background-color: #333;
+margin: 0;
+padding: 0;
+overflow: hidden;
+height: 100vh;
+}
+#game-container {
+display: flex;
+width: 100vw;
+height: 100vh;
+}
+/* Farm-Bereich */
+#farm-area {
+flex-grow: 1;
+background-color: #8bc34a;
+border: 3px solid #5a9216;
+position: relative;
+overflow: hidden;
+transition: filter 1s ease, background-color 1s ease;
+}
+#farm-area.night {
+filter: brightness(0.4);
+background-color: #2a4e1a;
+}
+#farm-area.dawn {
+filter: brightness(0.7);
+background-color: #5a9216;
+}
+#farm-area.day {
+filter: brightness(1);
+background-color: #8bc34a;
+}
+#farm-area.dusk {
+filter: brightness(0.7);
+background-color: #5a9216;
+}
+#farm-area.cloudy {
+filter: brightness(0.8);
+background-color: #6b8e23;
+}
+#farm-area.windy {
+filter: brightness(0.9);
+background-color: #7ba05b;
+}
+/* UI-Panel */
+#ui-panel {
+width: 300px;
+min-width: 300px;
+padding: 15px;
+background-color: #444;
+color: white;
+overflow-y: auto;
+height: 100%;
+box-sizing: border-box;
+border-left: 2px solid #666;
+}
+/* Gebäude-Styles */
+.farm-item {
+position: absolute;
+cursor: pointer;
+transition: transform 0.1s;
+z-index: 2;
+display: flex;
+align-items: center;
+justify-content: center;
+color: white;
+font-family: 'Roboto Mono', monospace;
+font-size: 12px;
+font-weight: 700;
+text-align: center;
+text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+.farm-item:hover {
+transform: scale(1.05);
+z-index: 5;
+}
+.farm-item:not(:hover) {
+transition: color 0.2s ease;
+}
+.farm-item:hover {
+color: transparent;
+}
+.farm-item::after {
+content: attr(data-income);
+position: absolute;
+color: white;
+font-family: 'Roboto Mono', monospace;
+font-size: 10px;
+font-weight: 400;
+text-align: center;
+text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+opacity: 0;
+transition: opacity 0.2s ease;
+top: 50%;
+left: 50%;
+transform: translate(-50%, -50%);
+pointer-events: none;
+white-space: pre-wrap;
+}
+.farm-item:hover::after {
+opacity: 1;
+}
+.temp-item {
+pointer-events: none;
+opacity: 0.7;
+z-index: 10;
+}
+.invalid-position {
+background-color: rgba(255, 0, 0, 0.3) !important;
+}
+/* Spezifische Gebäude */
+.solar-panel {
+width: 60px;
+height: 60px;
+background-color: #2196F3;
+border: 2px solid #0d47a1;
+border-radius: 3px;
+}
+.solar-panel.lvl1 { background-color: #2196F3; }
+.solar-panel.lvl2 { background-color: #00BCD4; }
+.solar-panel.lvl3 { background-color: #009688; }
+.wind-turbine {
+width: 60px;
+height: 80px;
+background-color: #00CED1;
+border: 2px solid #008B8B;
+border-radius: 3px;
+}
+.wind-turbine.lvl1 { background-color: #00CED1; }
+.wind-turbine.lvl2 { background-color: #20B2AA; }
+.wind-turbine.lvl3 { background-color: #008B8B; }
+.barn {
+width: 80px;
+height: 60px;
+background-color: #795548;
+border: 2px solid #3e2723;
+border-radius: 3px;
+}
+.field {
+width: 100px;
+height: 80px;
+background-color: #8bc34a;
+border: 2px solid #33691e;
+border-radius: 3px;
+position: relative;
+transition: background-color 1s linear;
+}
+.field.field-seed {
+background-color: #8b6f47;
+}
+.field.field-growing {
+background-color: #4caf50;
+}
+.field.field-ripe {
+background-color: #ffd700;
+}
+.battery {
+width: 70px;
+height: 50px;
+background-color: #9E9E9E;
+border: 2px solid #616161;
+border-radius: 5px;
+position: relative;
+overflow: hidden;
+}
+.battery::before {
+content: '';
+position: absolute;
+bottom: 0;
+left: 0;
+right: 0;
+background-color: #4CAF50;
+height: var(--fill-level, 0%);
+transition: height 0.5s ease;
+}
+.battery.lvl1 { border-color: #2196F3; }
+.battery.lvl2 { border-color: #FFC107; }
+.battery.lvl3 { border-color: #F44336; }
+.silo {
+width: 70px;
+height: 70px;
+background-color: #607D8B;
+border: 2px solid #37474F;
+border-radius: 50%;
+}
+.silo.lvl1 { border-color: #0288D1; }
+.silo.lvl2 { border-color: #FBC02D; }
+.silo.lvl3 { border-color: #D32F2F; }
+.water-pump {
+width: 50px;
+height: 50px;
+background-color: #4682B4;
+border: 2px solid #2F4F4F;
+border-radius: 5px;
+}
+/* Zeit- und Wetter-Anzeige */
+#time-display, #weather-display {
+font-family: 'Roboto Mono', monospace;
+font-size: 24px;
+text-align: center;
+margin: 15px 0;
+padding: 10px;
+background-color: #555;
+border-radius: 5px;
+font-weight: bold;
+}
+.progress-container {
+width: 100%;
+background-color: #555;
+border-radius: 5px;
+margin: 10px 0;
+overflow: hidden;
+height: 20px;
+}
+.progress-bar {
+height: 100%;
+background: linear-gradient(90deg, #1a2e0d, #4CAF50);
+width: 0%;
+position: relative;
+}
+.progress-bar::after {
+content: '';
+position: absolute;
+top: 0;
+left: 0;
+right: 0;
+bottom: 0;
+background: linear-gradient(90deg,
+rgba(255,255,255,0.1) 0%,
+rgba(255,255,255,0.3) 50%,
+rgba(255,255,255,0.1) 100%);
+background-size: 200% 100%;
+animation: shine 2s infinite linear;
+}
+@keyframes shine {
+0% { background-position: 200% 0; }
+100% { background-position: -200% 0; }
+}
+/* Energie-Statistiken */
+.energy-stats {
+background-color: #555;
+padding: 15px;
+border-radius: 5px;
+margin: 15px 0;
+}
+.energy-stat {
+display: flex;
+justify-content: space-between;
+margin: 8px 0;
+font-size: 14px;
+}
+.energy-label {
+font-weight: bold;
+}
+.energy-value {
+color: #4CAF50;
+}
+.negative {
+color: #f44336;
+}
+/* Buttons */
+button {
+background-color: #4CAF50;
+border: none;
+color: white;
+padding: 10px;
+margin: 5px 0;
+font-size: 14px;
+cursor: pointer;
+font-family: 'Roboto Mono', monospace;
+width: 100%;
+border-radius: 4px;
+transition: background-color 0.3s;
+}
+button:hover {
+background-color: #45a049;
+}
+.upgrade-btn {
+background-color: #FF9800;
+margin-top: 8px;
+}
+.upgrade-btn:hover {
+background-color: #F57C00;
+}
+#sell-energy-btn, #sell-wheat-btn {
+background-color: #FFC107;
+color: #333;
+font-weight: bold;
+margin-top: 15px;
+}
+#sell-energy-btn:hover, #sell-wheat-btn:hover {
+background-color: #FFA000;
+}
+/* Geldzuwachs-Animation */
+.money-change {
+position: absolute;
+color: #4CAF50;
+font-weight: bold;
+font-size: 16px;
+pointer-events: none;
+animation: float-up 1s ease-out forwards;
+z-index: 100;
+}
+@keyframes float-up {
+0% { transform: translateY(0); opacity: 1; }
+100% { transform: translateY(-50px); opacity: 0; }
+}
+/* Fehler-Nachricht */
+.error-message {
+position: absolute;
+color: white;
+font-weight: bold;
+font-size: 14px;
+background-color: rgba(255, 0, 0, 0.8);
+padding: 10px;
+border-radius: 5px;
+z-index: 100;
+}
+/* Tutorial-Modal */
+#tutorial-modal {
+position: fixed;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+background-color: rgba(0, 0, 0, 0.7);
+display: flex;
+justify-content: center;
+align-items: center;
+z-index: 1000;
+}
+.tutorial-content {
+background-color: #444;
+padding: 20px;
+border-radius: 5px;
+color: white;
+max-width: 500px;
+text-align: center;
+}
+.tutorial-content ul {
+text-align: left;
+}
+#close-tutorial {
+background-color: #4CAF50;
+margin-top: 15px;
+}
+#close-tutorial:hover {
+background-color: #45a049;
+}
+/* Sonstige UI-Elemente */
+#build-hint {
+color: #aaa;
+font-size: 12px;
+margin: 5px 0;
+text-align: center;
+}
+.sell-info {
+margin-top: 8px;
+padding: 8px;
+background-color: rgba(0, 0, 0, 0.2);
+border-radius: 4px;
+font-size: 13px;
+text-align: center;
+min-height: 18px;
+}
+h2, h3 {
+color: #FFC107;
+margin-top: 0;
+}
+#stats p {
+margin: 8px 0;
+font-size: 14px;
+}
+.selected {
+box-shadow: 0 0 10px 5px rgba(255, 255, 0, 0.7);
+}

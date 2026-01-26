@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Nachhaltige Farm — Wirtschaftssimulator (Single File)</title>
+  <!-- Roboto Mono for monospace look -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#333;
+      --panel:#2b2b2b;
+      --panel-2:#444;
+      --accent:#8bc34a;
+      --text:#eee;
+      --muted:#aaa;
+      --tile:#2f2f2f;
+      --glass: rgba(255,255,255,0.03);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:'Roboto Mono', monospace;background:var(--bg);color:var(--text)}
+    .app{display:flex;gap:12px;padding:12px;height:100vh}
+
+    /* Farm area */
+    .farm{flex:1;background:linear-gradient(#222,#1f1f1f);border-radius:10px;padding:12px;display:flex;flex-direction:column}
+    .farm-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    .grid{flex:1;background:var(--tile);border-radius:8px;padding:8px;display:grid;grid-template-columns:repeat(12,1fr);grid-auto-rows:56px;gap:6px}
+    .tile{background:var(--glass);border:1px solid rgba(255,255,255,0.03);border-radius:6px;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
+    .tile:hover{outline:2px solid rgba(139,195,74,0.12)}
+    .building{position:absolute;inset:6px;border-radius:6px;display:flex;flex-direction:column;justify-content:center;align-items:center;font-size:12px}
+
+    /* UI Panel */
+    .panel{width:360px;background:linear-gradient(var(--panel),var(--panel-2));border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px}
+    .stat{display:flex;justify-content:space-between;padding:8px;background:rgba(255,255,255,0.02);border-radius:6px}
+    .btn{background:var(--accent);border:none;padding:8px 10px;border-radius:6px;color:#0b0b0b;cursor:pointer;font-weight:700}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--text)}
+    .build-list{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .build-item{padding:8px;background:rgba(0,0,0,0.12);border-radius:6px;display:flex;flex-direction:column;gap:6px}
+
+    /* progress bar */
+    .progress-wrap{background:rgba(255,255,255,0.03);height:12px;border-radius:6px;overflow:hidden}
+    .progress{height:100%;background:linear-gradient(90deg,var(--accent),#6fbf3a);width:0%;transition:width 300ms}
+
+    /* floating text */
+    .floating{position:absolute;pointer-events:none;font-weight:700;opacity:1;transform:translateY(0)}
+
+    /* small helpers */
+    .muted{color:var(--muted)}
+    .row{display:flex;gap:8px;align-items:center}
+
+    /* day/night overlay */\    
+    .overlay{position:absolute;inset:0;border-radius:10px;pointer-events:none;mix-blend-mode:multiply}
+
+    /* simple responsive */
+    @media(max-width:900px){.panel{width:320px}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="farm">
+      <div class="farm-header">
+        <div>
+          <div style="font-size:18px">Meine Nachhaltige Farm</div>
+          <div class="muted" id="timeText">Tag 1 — 06:00 — Wetter: Sonnig</div>
+        </div>
+        <div class="row">
+          <button class="btn ghost" id="pauseBtn">Pause</button>
+          <button class="btn" id="speedBtn">⏩ x1</button>
+        </div>
+      </div>
+
+      <div style="position:relative;flex:1;display:flex;flex-direction:column">
+        <div class="grid" id="grid" style="position:relative"></div>
+        <div class="overlay" id="overlay"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="stat"><div>Geld</div><div id="money">€2000</div></div>
+      <div class="stat"><div>Strom (kW)</div><div id="energyNet">0</div></div>
+      <div class="stat"><div>Weizen</div><div id="wheat">0</div></div>
+      <div class="stat"><div>Batterie (kWh)</div><div id="battery">0 / 50</div></div>
+
+      <div>
+        <div class="muted">Tagesfortschritt</div>
+        <div class="progress-wrap"><div class="progress" id="dayProgress"></div></div>
+      </div>
+
+      <div>
+        <div class="muted">Bauen</div>
+        <div class="build-list" id="buildList"></div>
+      </div>
+
+      <div class="row">
+        <button class="btn" id="sellWheat">Weizen verkaufen</button>
+        <button class="btn ghost" id="sellEnergy">Strom verkaufen</button>
+      </div>
+
+      <div>
+        <div class="muted">Management</div>
+        <div class="row">
+          <button class="btn ghost" id="loanBtn">Kredit aufnehmen (€1000)</button>
+          <button class="btn ghost" id="maintBtn">Wartung bezahlen</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="muted">Upgrades / Achievements</div>
+        <div id="achievements" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+
+      <div style="margin-top:auto" class="muted">Hinweis: Dieses Spiel ist als Single-File Demo gedacht. Kommentare im Code erklären die Logik.</div>
+    </div>
+  </div>
+
+  <script>
+    /* ====== Konfiguration ====== */
+    const CONFIG = {
+      cols: 12,
+      rows: 6,
+      startMoney: 2000,
+      // default day length in ms: 24 minutes = 24*60*1000
+      // für tests kann man das z.B. auf 60*1000 setzen
+      dayLengthMs: 60*1000, // set to 60s for demo; change to 24*60*1000 for real timing
+      dayMinutes: 24, // visual hours in day cycle (0..23)
+      initialBatteryCapacity: 50, // kWh
+    };
+
+    /* ====== Spielzustand ====== */
+    const state = {
+      money: CONFIG.startMoney,
+      dayProgress: 0, // 0..1
+      dayCount: 1,
+      timeOfDayMin: 6, // start at 6:00
+      weather: 'Sonnig', // Sonnig, Bewölkt, Windig
+      season: 'Frühling',
+      speed: 1,
+      paused: false,
+      grid: [],
+      buildings: [],
+      energyProduced: 0,
+      energyConsumed: 0,
+      batteryCharge: 0,
+      batteryCapacity: CONFIG.initialBatteryCapacity,
+      wheatStored: 0,
+      siloCapacity: 200,
+      achievements: new Set(),
+      loans: [],
+      maintenanceDue: 0,
+    };
+
+    /* ====== Gebäude-Definitionen ====== */
+    const TEMPLATES = {
+      pv: {name:'PV-Anlage', cost:500, type:'pv', produces:5, consumes:0, upgradeLevel:1},
+      wind: {name:'Windrad', cost:600, type:'wind', produces:6, consumes:0, upgradeLevel:1},
+      stall: {name:'Stall', cost:300, type:'stall', produces:0, consumes:0.5, passiveIncome:20},
+      field: {name:'Feld', cost:200, type:'field', producesWheat:[90,110], growTimeSec:120, grown:false},
+      battery: {name:'Batterie', cost:10, type:'battery', capacity:10, efficiency:0.95},
+      silo: {name:'Silo', cost:400, type:'silo', capacity:200},
+      pump: {name:'Wasserpumpe', cost:250, type:'pump', growspeed:1.2, consumes:0.2},
+      workshop: {name:'Werkstatt', cost:800, type:'workshop', passiveIncome:5},
+      watertower: {name:'Wasserturm', cost:500, type:'watertower', siloBonus:100},
+    };
+
+    /* ====== Setup Grid UI ====== */
+    const gridEl = document.getElementById('grid');
+    function createGrid(){
+      gridEl.style.gridTemplateColumns = `repeat(${CONFIG.cols},1fr)`;
+      for(let r=0;r<CONFIG.rows;r++){
+        for(let c=0;c<CONFIG.cols;c++){
+          const idx = r*CONFIG.cols + c;
+          const tile = document.createElement('div');
+          tile.className='tile';
+          tile.dataset.index = idx;
+          tile.innerHTML = `<div class="muted">${c},${r}</div>`;
+          tile.addEventListener('click',()=>onTileClick(idx,tile));
+          gridEl.appendChild(tile);
+          state.grid.push({idx,building:null});
+        }
+      }
+    }
+
+    /* ====== Build list UI ====== */
+    const buildListEl = document.getElementById('buildList');
+    function setupBuildList(){
+      Object.keys(TEMPLATES).forEach(key=>{
+        const t = TEMPLATES[key];
+        const el = document.createElement('div');
+        el.className='build-item';
+        el.innerHTML = `<div style="font-weight:700">${t.name} — €${t.cost}</div><div class="muted" style="font-size:12px">${t.type}</div><button class="btn" data-build="${key}">Bauen</button>`;
+        buildListEl.appendChild(el);
+        el.querySelector('button').addEventListener('click',()=>selectBuilding(key));
+      })
+    }
+
+    let selectedBuild = null;
+    function selectBuilding(key){
+      selectedBuild = key;
+      // simple visual feedback
+      document.querySelectorAll('.build-item').forEach(el=>el.style.outline='');
+      const btn = document.querySelector(`[data-build='${key}']`).parentElement;
+      btn.style.outline='2px solid rgba(139,195,74,0.3)';
+    }
+
+    function onTileClick(index,tileEl){
+      const tile = state.grid[index];
+      if(selectedBuild){
+        const tpl = TEMPLATES[selectedBuild];
+        if(state.money < tpl.cost){
+          showFloating(tileEl, 'Nicht genug Geld', '#f55');
+          return;
+        }
+        // place the building
+        const building = JSON.parse(JSON.stringify(tpl)); // shallow clone
+        building.id = 'b'+Date.now()+Math.random().toString(36).slice(2,6);
+        building.pos = index;
+        building.level = 1;
+        if(building.type==='field'){
+          building.growStart = Date.now();
+          building.growDuration = (building.growTimeSec || 120)*1000;
+          building.grown = false;
+        }
+        if(building.type==='battery'){
+          state.batteryCapacity += building.capacity; // add capacity
+        }
+        if(building.type==='silo'){
+          state.siloCapacity += building.capacity;
+        }
+        state.money -= tpl.cost;
+        tile.building = building;
+        state.buildings.push(building);
+        renderTile(tileEl,building);
+        showFloating(tileEl, 'Gebaut: '+tpl.name);
+        checkAchievements('firstBuild');
+        selectedBuild=null;
+        document.querySelectorAll('.build-item').forEach(el=>el.style.outline='');
+        updateUI();
+      } else {
+        // click on existing building => open small menu
+        if(tile.building){
+          const b = tile.building;
+          const choice = prompt(`Gebäude: ${b.name}\nOptionen: upgrade / verkaufen / info \nGib ein:`,'info');
+          if(!choice) return;
+          if(choice.toLowerCase()==='verkaufen'){
+            sellBuilding(b,tileEl);
+          } else if(choice.toLowerCase()==='upgrade'){
+            upgradeBuilding(b,tileEl);
+          } else {
+            alert(JSON.stringify(b,null,2));
+          }
+        }
+      }
+    }
+
+    function renderTile(tileEl,building){
+      tileEl.innerHTML='';
+      const box = document.createElement('div');
+      box.className='building';
+      box.style.background='linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.12))';
+      box.innerHTML = `<div style="font-weight:700;font-size:12px">${building.name}</div><div style="font-size:11px" class="muted">Lvl ${building.level}</div>`;
+      tileEl.appendChild(box);
+    }
+
+    function sellBuilding(b,tileEl){
+      const refund = Math.floor((TEMPLATES[b.type]?.cost||0)*0.5);
+      state.money += refund;
+      showFloating(tileEl, `Verkauft +€${refund}`);
+      // remove effects
+      if(b.type==='battery') state.batteryCapacity -= b.capacity;
+      if(b.type==='silo') state.siloCapacity -= b.capacity;
+      // remove from grid
+      const tile = state.grid[b.pos];
+      tile.building=null;
+      state.buildings = state.buildings.filter(x=>x.id!==b.id);
+      tileEl.innerHTML = `<div class="muted">${b.pos%CONFIG.cols},${Math.floor(b.pos/CONFIG.cols)}</div>`;
+      updateUI();
+    }
+
+    function upgradeBuilding(b,tileEl){
+      const cost = Math.floor((TEMPLATES[b.type]?.cost||100) * (1.5 + 0.5*b.level));
+      if(state.money < cost){ showFloating(tileEl,'Nicht genug Geld','#f55'); return; }
+      state.money -= cost;
+      b.level++;
+      // enhance stats simply
+      if(b.type==='pv' || b.type==='wind') b.produces *= 1.6;
+      if(b.type==='battery'){ state.batteryCapacity += 10; }
+      if(b.type==='silo'){ state.siloCapacity += 100; }
+      renderTile(tileEl,b);
+      showFloating(tileEl, `Upgrade! -€${cost}`);
+      updateUI();
+    }
+
+    /* ====== Floating text utility ====== */
+    function showFloating(targetEl,text,color){
+      const rect = targetEl.getBoundingClientRect();
+      const f = document.createElement('div');
+      f.className='floating';
+      f.style.left = (rect.left + rect.width/2) + 'px';
+      f.style.top = (rect.top + rect.height/2) + 'px';
+      f.style.position='fixed';
+      f.style.padding='6px 8px';
+      f.style.background='rgba(0,0,0,0.6)';
+      f.style.borderRadius='6px';
+      f.style.color = color||'#cfffa4';
+      f.innerText = text;
+      document.body.appendChild(f);
+      // animate
+      let y = 0; let op = 1;
+      const id = setInterval(()=>{
+        y -= 1.6; op -= 0.03;
+        f.style.transform = `translateY(${y}px)`;
+        f.style.opacity = op;
+        if(op<=0){ clearInterval(id); f.remove(); }
+      },30);
+    }
+
+    /* ====== Game loop ====== */
+    let lastTick = Date.now();
+    function tick(){
+      if(state.paused) { lastTick = Date.now(); requestAnimationFrame(tick); return; }
+      const now = Date.now();
+      const dt = (now - lastTick) * state.speed;
+      lastTick = now;
+
+      // advance day progress
+      state.dayProgress += dt / CONFIG.dayLengthMs;
+      if(state.dayProgress >= 1){ state.dayProgress = 0; state.dayCount++; advanceSeasonIfNeeded(); state.timeOfDayMin = 6; }
+      // time of day in minutes mapped to 24 "hours"
+      const dayMinutes = CONFIG.dayMinutes;
+      const currentMin = Math.floor(state.dayProgress * dayMinutes);
+      state.timeOfDayMin = currentMin;
+
+      // update weather randomly sometimes
+      if(Math.random() < 0.01) updateWeatherRandom();
+
+      computeEnergy();
+      processFields(dt);
+      processPassiveIncome(dt);
+      updateUI();
+
+      requestAnimationFrame(tick);
+    }
+
+    function updateWeatherRandom(){
+      const r = Math.random();
+      if(r<0.6) state.weather='Sonnig'; else if(r<0.85) state.weather='Bewölkt'; else state.weather='Windig';
+    }
+
+    function computeEnergy(){
+      let prod = 0;
+      let cons = 0;
+      state.buildings.forEach(b=>{
+        if(b.type==='pv'){
+          // day factor
+          const dayFactor = Math.max(0, Math.cos((state.dayProgress*2*Math.PI) - Math.PI/2)); // simple sun curve
+          let weatherFactor = (state.weather==='Sonnig')?1:(state.weather==='Bewölkt'?0.5:0.8);
+          prod += (b.produces || 0) * b.level * dayFactor * weatherFactor;
+        }
+        if(b.type==='wind'){
+          let windFactor = (state.weather==='Windig')?1.5:(state.weather==='Bewölkt'?0.8:0.9);
+          prod += (b.produces || 0) * b.level * windFactor;
+        }
+        if(b.consumes) cons += b.consumes;
+        if(b.type==='battery'){ /* batteries don't consume */ }
+      });
+      // net energy per tick (kW)
+      state.energyProduced = prod;
+      state.energyConsumed = cons;
+      const net = prod - cons;
+
+      // if surplus -> charge battery
+      if(net > 0){
+        const added = net * 0.016; // convert kW to kWh per tick approx (dt normalized) \n        const space = state.batteryCapacity - state.batteryCharge;
+        const toStore = Math.min(space, added * 0.95);
+        state.batteryCharge += toStore;
+      } else {
+        // deficit -> draw from battery
+        const needed = Math.abs(net) * 0.016;
+        const used = Math.min(state.batteryCharge, needed);
+        state.batteryCharge -= used;
+      }
+    }
+
+    function processFields(dt){
+      state.buildings.forEach(b=>{
+        if(b.type==='field'){
+          if(!b.grown){
+            // consider pumps nearby
+            const base = b.growDuration || 120000;
+            // check neighbors for pump within 2 tiles
+            const neighbors = state.buildings.filter(x=>x.type==='pump' && Math.abs(x.pos - b.pos) <= CONFIG.cols*2 + 2);
+            const speedFactor = neighbors.length?0.75:1.0;
+            if(Date.now() - b.growStart >= base * speedFactor){
+              b.grown = true;
+              b.yield = Math.floor(randRange(b.producesWheat[0], b.producesWheat[1]));
+              showFloating(document.querySelector(`[data-index='${b.pos}']`), `Feld reif +${b.yield} Weizen`);
+            }
+          }
+        }
+      });
+    }
+
+    function processPassiveIncome(dt){
+      // per day payout converted to per ms
+      const msPerDay = CONFIG.dayLengthMs;
+      let income = 0;
+      state.buildings.forEach(b=>{
+        if(b.type==='stall'){ income += (b.passiveIncome || 0) / msPerDay * dt; }
+        if(b.type==='workshop'){ income += (b.passiveIncome || 0) / msPerDay * dt; }
+      });
+      state.money += income;
+    }
+
+    function randRange(a,b){ return Math.floor(a + Math.random()*(b-a+1)); }
+
+    /* ====== UI & Controls ====== */
+    const moneyEl = document.getElementById('money');
+    const energyNetEl = document.getElementById('energyNet');
+    const wheatEl = document.getElementById('wheat');
+    const batteryEl = document.getElementById('battery');
+    const dayProgressEl = document.getElementById('dayProgress');
+    const timeTextEl = document.getElementById('timeText');
+
+    function updateUI(){
+      moneyEl.innerText = `€${Math.floor(state.money)}`;
+      energyNetEl.innerText = `${(state.energyProduced - state.energyConsumed).toFixed(2)} kW`;
+      wheatEl.innerText = `${state.wheatStored}`;
+      batteryEl.innerText = `${Math.floor(state.batteryCharge)} / ${state.batteryCapacity} kWh`;
+      dayProgressEl.style.width = `${Math.floor(state.dayProgress*100)}%`;
+      timeTextEl.innerText = `Tag ${state.dayCount} — ${Math.max(0,state.timeOfDayMin)}:00 — Wetter: ${state.weather} — Saison: ${state.season}`;
+      document.getElementById('speedBtn').innerText = `⏩ x${state.speed}`;
+
+      // day brightness overlay
+      const overlay = document.getElementById('overlay');
+      const brightness = Math.max(0.15, Math.cos(state.dayProgress*2*Math.PI)*0.7 + 0.3);
+      overlay.style.background = `linear-gradient(rgba(0,0,0,${1-brightness}), rgba(0,0,0,${1-brightness}))`;
+
+      // achievements list
+      const achEl = document.getElementById('achievements');
+      achEl.innerHTML='';
+      state.achievements.forEach(a=>{ const d=document.createElement('div'); d.style.padding='6px'; d.style.background='rgba(0,0,0,0.12)'; d.innerText=a; achEl.appendChild(d)});
+    }
+
+    /* ====== Actions: Sell, Loan, Maintenance ====== */
+    document.getElementById('sellWheat').addEventListener('click',()=>{
+      if(state.siloCapacity===0){ alert('Kein Silo! Kein Verkauf möglich.'); return; }
+      if(state.wheatStored<=0){ showFloating(document.getElementById('sellWheat'), 'Kein Weizen'); return; }
+      const price = randRange(30,80)/100; // 0.30 - 0.80
+      const gained = Math.floor(state.wheatStored * price);
+      state.money += gained;
+      showFloating(document.getElementById('sellWheat'), `+€${gained}`);
+      state.wheatStored = 0;
+      updateUI();
+    });
+
+    document.getElementById('sellEnergy').addEventListener('click',()=>{
+      const sellable = Math.floor(state.batteryCharge);
+      if(sellable<=0){ showFloating(document.getElementById('sellEnergy'),'Keine Energie'); return; }
+      const price = 5; // € per kWh (simple)
+      const gained = sellable * price;
+      state.batteryCharge -= sellable;
+      state.money += gained;
+      showFloating(document.getElementById('sellEnergy'), `+€${gained}`);
+      updateUI();
+    });
+
+    document.getElementById('loanBtn').addEventListener('click',()=>{
+      state.money += 1000;
+      state.loans.push({amount:1000, dueInDays:7, interest:0.05});
+      showFloating(document.getElementById('loanBtn'),'Kredit aufgenommen +€1000');
+      updateUI();
+    });
+
+    document.getElementById('maintBtn').addEventListener('click',()=>{
+      const cost = Math.max(50, state.buildings.length * 5);
+      if(state.money < cost){ alert('Nicht genug Geld für Wartung'); return; }
+      state.money -= cost;
+      showFloating(document.getElementById('maintBtn'), `Wartung -€${cost}`);
+      updateUI();
+    });
+
+    document.getElementById('pauseBtn').addEventListener('click',()=>{ state.paused = !state.paused; document.getElementById('pauseBtn').innerText = state.paused? 'Weiter' : 'Pause'; });
+    document.getElementById('speedBtn').addEventListener('click',()=>{ state.speed = state.speed===1?4:1; updateUI(); });
+
+    /* ====== Achievements & Checks ====== */
+    function checkAchievements(trigger){
+      if(trigger==='firstBuild' && !state.achievements.has('Erste Sonne')){
+        state.achievements.add('Erste Sonne'); state.money += 100; showFloating(document.body,'Achievement: Erste Sonne +€100');
+      }
+    }
+
+    function advanceSeasonIfNeeded(){
+      // every 30 days rotate season
+      const idx = Math.floor(state.dayCount/30) % 4;
+      const seasons = ['Frühling','Sommer','Herbst','Winter'];
+      state.season = seasons[idx];
+      // slight econ effects on season change
+      if(state.season==='Sommer') state.weather = 'Sonnig';
+      if(state.season==='Winter') state.weather = 'Windig';
+    }
+
+    /* ====== Harvest action: clicking ripe field collects wheat ====== */
+    document.addEventListener('click',(e)=>{
+      const t = e.target.closest('.tile');
+      if(!t) return;
+      const idx = Number(t.dataset.index);
+      const tile = state.grid[idx];
+      if(tile.building && tile.building.type==='field' && tile.building.grown){
+        const amount = tile.building.yield || 100;
+        if(state.wheatStored + amount > state.siloCapacity){ showFloating(t,'Silo voll','orange'); return; }
+        state.wheatStored += amount;
+        tile.building = null;
+        state.buildings = state.buildings.filter(b=>b.pos!==idx);
+        t.innerHTML = `<div class="muted">${idx%CONFIG.cols},${Math.floor(idx/CONFIG.cols)}</div>`;
+        showFloating(t, `Ernte +${amount} Weizen`);
+        updateUI();
+      }
+    });
+
+    /* ====== Helpers & Init ====== */
+    function setup(){
+      createGrid();
+      setupBuildList();
+      updateWeatherRandom();
+      updateUI();
+      lastTick = Date.now();
+      requestAnimationFrame(tick);
+    }
+
+    setup();
+  </script>
+</body>
+</html>
